@@ -26,7 +26,7 @@ func NewDefaultValidator(cfg ClientConfig) (*DefaultValidator, error) {
 		enableSecurityPolicy: cfg.EnableSecurityPolicy,
 	}
 
-	if cfg.EnableSecurityPolicy && cfg.SecurityPolicyFile != "" {
+	if cfg.EnableSecurityPolicy {
 		policy, err := LoadSecurityPolicy(cfg.SecurityPolicyFile)
 		if err != nil {
 			return nil, err
@@ -34,7 +34,7 @@ func NewDefaultValidator(cfg ClientConfig) (*DefaultValidator, error) {
 		validator.policy = policy
 	}
 
-	if cfg.ReadOnlyMode && cfg.ReadOnlyPatternsFile != "" {
+	if cfg.ReadOnlyMode {
 		patterns, err := LoadReadOnlyPatterns(cfg.ReadOnlyPatternsFile)
 		if err != nil {
 			return nil, err
@@ -115,9 +115,16 @@ func (v *DefaultValidator) checkReadOnly(cmdStr string) error {
 }
 
 func LoadSecurityPolicy(filePath string) (*SecurityPolicy, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read policy file: %w", err)
+	var data []byte
+
+	if filePath == "" {
+		data = []byte(DefaultSecurityPolicy)
+	} else {
+		var err error
+		data, err = os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read policy file: %w", err)
+		}
 	}
 
 	var policy SecurityPolicy
@@ -129,9 +136,16 @@ func LoadSecurityPolicy(filePath string) (*SecurityPolicy, error) {
 }
 
 func LoadReadOnlyPatterns(filePath string) (*ReadOnlyPatterns, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read patterns file: %w", err)
+	var data []byte
+
+	if filePath == "" {
+		data = []byte(DefaultReadOnlyPatterns)
+	} else {
+		var err error
+		data, err = os.ReadFile(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read patterns file: %w", err)
+		}
 	}
 
 	var patterns ReadOnlyPatterns
