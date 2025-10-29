@@ -14,12 +14,14 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
-
 	cfg := config.NewConfig()
 	if err := cfg.ParseFlags(); err != nil {
 		log.Fatalf("Configuration error: %v", err)
 	}
+
+	authTimeout := 30 * time.Second
+	authCtx, authCancel := context.WithTimeout(context.Background(), authTimeout)
+	defer authCancel()
 
 	if !cfg.SkipAuthSetup {
 		authConfig := azcli.AuthConfig{
@@ -33,14 +35,20 @@ func main() {
 		}
 
 		authSetup := azcli.NewDefaultAuthSetup(authConfig)
-		if err := authSetup.Setup(ctx); err != nil {
+		if err := authSetup.Setup(authCtx); err != nil {
+			if authCtx.Err() == context.DeadlineExceeded {
+				log.Fatalf("Authentication setup timed out after %v. This may indicate az CLI is waiting for interactive input or is not responding.", authTimeout)
+			}
 			log.Fatalf("Authentication setup failed: %v", err)
 		}
 		log.Printf("Authentication setup completed successfully")
 	}
 
 	authValidator := &azcli.DefaultAuthValidator{}
-	if err := authValidator.ValidateAuth(ctx); err != nil {
+	if err := authValidator.ValidateAuth(authCtx); err != nil {
+		if authCtx.Err() == context.DeadlineExceeded {
+			log.Fatalf("Authentication validation timed out after %v. This may indicate az CLI is not configured or is waiting for interactive input.", authTimeout)
+		}
 		if cfg.SkipAuthSetup {
 			log.Fatalf("Authentication validation failed: %v\nPlease run 'az login' manually first or set AZ_API_MCP_SKIP_AUTH_SETUP=false", err)
 		} else {

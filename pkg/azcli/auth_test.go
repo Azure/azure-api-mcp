@@ -32,11 +32,11 @@ func TestAuthSetup_DetectAuthMethod(t *testing.T) {
 			expected: "service-principal",
 		},
 		{
-			name: "default to managed-identity",
+			name: "default to empty when no auth method detected",
 			config: AuthConfig{
 				TenantID: "tenant-123",
 			},
-			expected: "managed-identity",
+			expected: "",
 		},
 	}
 
