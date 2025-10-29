@@ -37,18 +37,15 @@ func generateToolDescription(readOnlyMode bool) string {
 		baseDesc += "Mode: READ-WRITE - Both read and write operations are allowed (subject to policy).\n\n"
 	}
 
-	baseDesc += "Security Features:\n"
-	baseDesc += "- Command validation and sanitization\n"
-	baseDesc += "- Security policy enforcement (deny/allow/elicit lists)\n"
-	baseDesc += "- File system access controls\n"
-	baseDesc += "- Azure RBAC enforcement\n\n"
-
 	baseDesc += "Examples:\n"
 	baseDesc += "- List VMs: cli_command=\"az vm list --resource-group myRG\"\n"
 	baseDesc += "- Show storage account: cli_command=\"az storage account show --name myaccount\"\n"
+	baseDesc += "- List AKS clusters: cli_command=\"az aks list --resource-group myRG\"\n"
+	baseDesc += "- Get AKS credentials: cli_command=\"az aks get-credentials --name myCluster --resource-group myRG\"\n"
 
 	if !readOnlyMode {
 		baseDesc += "- Create resource group: cli_command=\"az group create --name myRG --location eastus\"\n"
+		baseDesc += "- Create AKS cluster: cli_command=\"az aks create --name myCluster --resource-group myRG --node-count 1\"\n"
 	}
 
 	return baseDesc
