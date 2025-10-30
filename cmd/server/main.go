@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Azure/azure-api-mcp/internal/config"
+	mcpserver "github.com/Azure/azure-api-mcp/internal/server"
+	"github.com/Azure/azure-api-mcp/pkg/azcli"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/yourorg/azure-api-mcp/internal/config"
-	mcpserver "github.com/yourorg/azure-api-mcp/internal/server"
-	"github.com/yourorg/azure-api-mcp/pkg/azcli"
 )
 
 func main() {
