@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/Azure/azure-api-mcp/pkg/azcli"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/yourorg/azure-api-mcp/pkg/azcli"
 )
 
 func CallAzHandler(client azcli.Client) server.ToolHandlerFunc {

@@ -1,4 +1,4 @@
-module github.com/yourorg/azure-api-mcp
+module github.com/Azure/azure-api-mcp
 
 go 1.24.0
 
