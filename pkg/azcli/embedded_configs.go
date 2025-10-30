@@ -1,0 +1,25 @@
+package azcli
+
+var DefaultReadOnlyPatterns = `patterns:
+  - "^az [a-z-]+ list($| )"
+  - "^az [a-z-]+ show($| )"
+  - "^az [a-z-]+ get-[a-z-]+($| )"
+  - "^az account show($| )"
+  - "^az account list($| )"
+  - "^az account list-locations($| )"
+  - "^az [a-z-]+ check-[a-z-]+($| )"
+  - "^az [a-z-]+ describe($| )"
+  - "^az [a-z-]+ query($| )"
+`
+
+var DefaultSecurityPolicy = `version: "1.0"
+policy:
+  denyList:
+    - "az account clear"
+    - "az login"
+    - "az logout"
+    - "az ad user delete"
+    - "az vm delete"
+    - "az group delete"
+    - "az storage blob delete"
+`
