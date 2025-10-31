@@ -74,7 +74,7 @@ func main() {
 		"1.0.0",
 	)
 
-	callAzTool := azcli.RegisterCallAzTool(cfg.ReadOnlyMode)
+	callAzTool := azcli.RegisterCallAzTool(cfg.ReadOnlyMode, cfg.DefaultSubscription)
 	callAzHandler := mcpserver.CallAzHandler(client)
 	mcpServer.AddTool(callAzTool, callAzHandler)
 
