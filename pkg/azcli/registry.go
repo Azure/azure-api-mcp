@@ -4,17 +4,8 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-func NewNoOpSecurityPolicy() *SecurityPolicy {
-	return &SecurityPolicy{
-		Version: "1.0",
-		Policy: PolicyRules{
-			DenyList: []string{},
-		},
-	}
-}
-
-func RegisterCallAzTool(readOnlyMode bool) mcp.Tool {
-	description := generateToolDescription(readOnlyMode)
+func RegisterCallAzTool(readOnlyMode bool, defaultSubscription string) mcp.Tool {
+	description := generateToolDescription(readOnlyMode, defaultSubscription)
 
 	return mcp.NewTool("call_az",
 		mcp.WithDescription(description),
@@ -28,7 +19,7 @@ func RegisterCallAzTool(readOnlyMode bool) mcp.Tool {
 	)
 }
 
-func generateToolDescription(readOnlyMode bool) string {
+func generateToolDescription(readOnlyMode bool, defaultSubscription string) string {
 	baseDesc := "Execute Azure CLI commands with security validation and policy enforcement.\n\n"
 
 	if readOnlyMode {
@@ -37,9 +28,13 @@ func generateToolDescription(readOnlyMode bool) string {
 		baseDesc += "Mode: READ-WRITE - Both read and write operations are allowed (subject to policy).\n\n"
 	}
 
+	if defaultSubscription != "" {
+		baseDesc += "Default Subscription: " + defaultSubscription + "\n\n"
+	}
+
 	baseDesc += "Examples:\n"
 	baseDesc += "- List VMs: cli_command=\"az vm list --resource-group myRG\"\n"
-	baseDesc += "- Show storage account: cli_command=\"az storage account show --name myaccount\"\n"
+	baseDesc += "- Show storage account (in a different subscription): cli_command=\"az storage account show --name myaccount --subscription <subscription-id>\"\n"
 	baseDesc += "- List AKS clusters: cli_command=\"az aks list --resource-group myRG\"\n"
 	baseDesc += "- Get AKS credentials: cli_command=\"az aks get-credentials --name myCluster --resource-group myRG\"\n"
 
