@@ -16,8 +16,12 @@ GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 GIT_TREE_STATE ?= $(shell if git diff --quiet 2>/dev/null; then echo "clean"; else echo "dirty"; fi)
 BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-# Go build flags (version info disabled until internal/version package is created)
-LDFLAGS =
+# Go build flags with version injection
+LDFLAGS = -ldflags "\
+	-X github.com/Azure/azure-api-mcp/internal/version.GitVersion=$(VERSION) \
+	-X github.com/Azure/azure-api-mcp/internal/version.GitCommit=$(GIT_COMMIT) \
+	-X github.com/Azure/azure-api-mcp/internal/version.GitTreeState=$(GIT_TREE_STATE) \
+	-X github.com/Azure/azure-api-mcp/internal/version.BuildMetadata=$(BUILD_DATE)"
 
 # Build options
 BUILD_FLAGS = -trimpath

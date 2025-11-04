@@ -9,6 +9,7 @@ import (
 
 	"github.com/Azure/azure-api-mcp/internal/config"
 	mcpserver "github.com/Azure/azure-api-mcp/internal/server"
+	"github.com/Azure/azure-api-mcp/internal/version"
 	"github.com/Azure/azure-api-mcp/pkg/azcli"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -71,14 +72,14 @@ func main() {
 
 	mcpServer := server.NewMCPServer(
 		"Azure API MCP",
-		"1.0.0",
+		version.GetVersion(),
 	)
 
 	callAzTool := azcli.RegisterCallAzTool(cfg.ReadOnlyMode, cfg.DefaultSubscription)
 	callAzHandler := mcpserver.CallAzHandler(client)
 	mcpServer.AddTool(callAzTool, callAzHandler)
 
-	log.Printf("Starting Azure API MCP server (version 1.0.0)")
+	log.Printf("Starting Azure API MCP server (version %s)", version.GetVersion())
 	if err := runServer(mcpServer, cfg); err != nil {
 		log.Fatalf("Server error: %v", err)
 	}
