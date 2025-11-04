@@ -382,6 +382,48 @@ Expected response format:
 }
 ```
 
+## Using with GitHub Copilot
+
+You can connect GitHub Copilot (in VS Code) to your deployed MCP server.
+
+### Prerequisites
+
+- VS Code with GitHub Copilot extension installed
+- Port forwarding active: `kubectl port-forward svc/azure-api-mcp 8000:8000`
+
+### Configuration
+
+Create or update `.vscode/mcp.json` in your workspace:
+
+```json
+{
+  "servers": {
+    "azure-api-mcp": {
+      "url": "http://localhost:8000/mcp",
+      "type": "http"
+    }
+  },
+  "inputs": []
+}
+```
+
+### Using the MCP Server in Copilot
+
+1. Open VS Code with the workspace containing `.vscode/mcp.json`
+2. Ensure port forwarding is active
+3. Open GitHub Copilot Chat
+4. The `call_az` tool will be available to Copilot
+
+### Example Copilot Prompts
+
+```
+list all virtual machines in my subscription
+```
+
+```
+get all AKS clusters in resource group ...
+```
+
 ## Configuration Options
 
 ### Environment Variables in deployment.yaml
