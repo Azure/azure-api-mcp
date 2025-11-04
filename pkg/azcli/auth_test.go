@@ -109,13 +109,13 @@ func TestAuthSetup_DetectManagedIdentity(t *testing.T) {
 	originalMSI := os.Getenv("MSI_ENDPOINT")
 	defer func() {
 		if originalMSI != "" {
-			os.Setenv("MSI_ENDPOINT", originalMSI)
+			_ = os.Setenv("MSI_ENDPOINT", originalMSI)
 		} else {
-			os.Unsetenv("MSI_ENDPOINT")
+			_ = os.Unsetenv("MSI_ENDPOINT")
 		}
 	}()
 
-	os.Setenv("MSI_ENDPOINT", "http://169.254.169.254/metadata/identity")
+	_ = os.Setenv("MSI_ENDPOINT", "http://169.254.169.254/metadata/identity")
 
 	config := AuthConfig{}
 	setup := NewDefaultAuthSetup(config)
