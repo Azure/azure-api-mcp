@@ -121,6 +121,7 @@ func LoadSecurityPolicy(filePath string) (*SecurityPolicy, error) {
 		data = []byte(DefaultSecurityPolicy)
 	} else {
 		var err error
+		// #nosec G304 - This is the intended behavior: load custom policy file from user-specified path
 		data, err = os.ReadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read policy file: %w", err)
@@ -142,6 +143,7 @@ func LoadReadOnlyPatterns(filePath string) (*ReadOnlyPatterns, error) {
 		data = []byte(DefaultReadOnlyPatterns)
 	} else {
 		var err error
+		// #nosec G304 - This is the intended behavior: load custom patterns file from user-specified path
 		data, err = os.ReadFile(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read patterns file: %w", err)

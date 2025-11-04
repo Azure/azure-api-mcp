@@ -41,6 +41,7 @@ func (e *DefaultExecutor) Execute(ctx context.Context, cmdStr string) (*Result, 
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, e.config.Timeout)
 	defer cancel()
 
+	// #nosec G204 - This is the intended behavior: execute validated Azure CLI commands
 	cmd := exec.CommandContext(ctxWithTimeout, args[0], args[1:]...)
 
 	if e.config.WorkingDir != "" {
@@ -108,7 +109,8 @@ func (e *DefaultExecutor) parseCommandString(cmdStr string) ([]string, error) {
 	inQuote := false
 	quoteChar := rune(0)
 
-	for i, ch := range cmdStr {
+	for i := 0; i < len(cmdStr); i++ {
+		ch := rune(cmdStr[i])
 		switch {
 		case ch == '"' || ch == '\'':
 			if !inQuote {

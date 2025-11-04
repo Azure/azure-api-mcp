@@ -59,6 +59,7 @@ func (s *DefaultAuthSetup) setupWorkloadIdentity(ctx context.Context) error {
 	}
 	token := strings.TrimSpace(string(tokenBytes))
 
+	// #nosec G204 - This is the intended behavior: execute az login with validated config parameters
 	cmd := exec.CommandContext(ctx, "az", "login",
 		"--federated-token", token,
 		"--service-principal",
@@ -97,6 +98,7 @@ func (s *DefaultAuthSetup) setupServicePrincipal(ctx context.Context) error {
 		return fmt.Errorf("AZURE_CLIENT_SECRET not set")
 	}
 
+	// #nosec G204 - This is the intended behavior: execute az login with validated config parameters
 	cmd := exec.CommandContext(ctx, "az", "login",
 		"--service-principal",
 		"-u", s.config.ClientID,
@@ -118,6 +120,7 @@ func (s *DefaultAuthSetup) setDefaultSubscription(ctx context.Context) error {
 		return nil
 	}
 
+	// #nosec G204 - This is the intended behavior: execute az account set with validated config parameter
 	cmd := exec.CommandContext(ctx, "az", "account", "set",
 		"--subscription", s.config.DefaultSubscription,
 	)
