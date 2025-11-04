@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/Azure/azure-api-mcp/internal/version"
 	flag "github.com/spf13/pflag"
 )
 
@@ -69,7 +70,13 @@ func (c *Config) ParseFlags() error {
 	}
 
 	if *showVersion {
-		fmt.Printf("Azure API MCP Server version 1.0.0\n")
+		fmt.Printf("Azure API MCP Server\n")
+		fmt.Printf("Version: %s\n", version.GetVersion())
+		versionInfo := version.GetVersionInfo()
+		fmt.Printf("Git Commit: %s\n", versionInfo["gitCommit"])
+		fmt.Printf("Git Tree State: %s\n", versionInfo["gitTreeState"])
+		fmt.Printf("Go Version: %s\n", versionInfo["goVersion"])
+		fmt.Printf("Platform: %s\n", versionInfo["platform"])
 		os.Exit(0)
 	}
 
