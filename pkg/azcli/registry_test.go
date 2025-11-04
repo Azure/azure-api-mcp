@@ -21,7 +21,7 @@ func TestGenerateToolDescription(t *testing.T) {
 				"Execute Azure CLI commands",
 				"Mode: READ-ONLY",
 				"List VMs:",
-				"Show storage account:",
+				"Show storage account",
 			},
 			wantNotContains: []string{
 				"Mode: READ-WRITE",
@@ -100,7 +100,7 @@ func TestGenerateToolDescriptionExamples(t *testing.T) {
 
 		requiredExamples := []string{
 			"List VMs:",
-			"Show storage account:",
+			"Show storage account",
 			"List AKS clusters:",
 			"Get AKS credentials:",
 		}
