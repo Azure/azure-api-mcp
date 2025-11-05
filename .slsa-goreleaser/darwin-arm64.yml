@@ -1,0 +1,22 @@
+version: 1
+
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=0
+
+goos: darwin
+
+goarch: arm64
+
+main: ./cmd/server
+
+flags:
+  - -trimpath
+
+ldflags:
+  - "-X github.com/Azure/azure-api-mcp/internal/version.GitVersion={{ .Env.VERSION }}"
+  - "-X github.com/Azure/azure-api-mcp/internal/version.GitCommit={{ .Env.COMMIT }}"
+  - "-X github.com/Azure/azure-api-mcp/internal/version.GitTreeState={{ .Env.TREE_STATE }}"
+  - "-X github.com/Azure/azure-api-mcp/internal/version.BuildMetadata={{ .Env.COMMIT_DATE }}"
+
+binary: azure-api-mcp-{{ .Os }}-{{ .Arch }}
