@@ -151,7 +151,7 @@ AZURE_SUBSCRIPTION_ID=xxx
 3. **Read-Only Mode** (optional, via `--readonly=true`)
    - Allow-list defined in `configs/readonly-operations.yaml`
    - Only permits safe read operations: list, show, get-*, check-*, describe, query
-  - Includes extended list-* discovery commands (e.g. `az vm list-sizes`, `az vm list-skus`) via generalized `list-[a-z-]+` pattern
+   - Includes extended list-* discovery commands (e.g. `az vm list-sizes`, `az vm list-skus`) via generalized `list-[a-z-]+` pattern
    - Must explicitly enable (`--readonly=true`) to restrict to read operations only
 
 ## Development
