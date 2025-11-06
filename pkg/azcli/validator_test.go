@@ -79,9 +79,10 @@ func TestValidator_CheckReadOnly(t *testing.T) {
 	patternsFile := filepath.Join(tmpDir, "readonly-patterns.yaml")
 
 	patternsContent := `patterns:
-  - "^az [a-z-]+ list($| )"
-  - "^az [a-z-]+ show($| )"
-  - "^az account show($| )"
+- "^az ([a-z-]+ )+list($| )"
+- "^az ([a-z-]+ )+list-[a-z-]+($| )"
+- "^az ([a-z-]+ )+show($| )"
+- "^az account show($| )"
 `
 	if err := os.WriteFile(patternsFile, []byte(patternsContent), 0644); err != nil {
 		t.Fatal(err)
@@ -103,18 +104,63 @@ func TestValidator_CheckReadOnly(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "read-only list command",
+			name:    "read-only list command - single level",
 			input:   "az vm list --resource-group myRG",
 			wantErr: false,
 		},
 		{
-			name:    "read-only show command",
+			name:    "read-only show command - single level",
 			input:   "az vm show --name myVM --resource-group myRG",
 			wantErr: false,
 		},
 		{
 			name:    "read-only account show",
 			input:   "az account show",
+			wantErr: false,
+		},
+		{
+			name:    "read-only list-sizes command",
+			input:   "az vm list-sizes --location eastus",
+			wantErr: false,
+		},
+		{
+			name:    "read-only list-skus command",
+			input:   "az vm list-skus --location eastus",
+			wantErr: false,
+		},
+		{
+			name:    "read-only nested list command - 2 levels",
+			input:   "az aks nodepool list --cluster-name aks-oidc-demo --resource-group guwe-rg-oidc-demo-1",
+			wantErr: false,
+		},
+		{
+			name:    "read-only nested list command with output flag",
+			input:   "az aks nodepool list --cluster-name aks-oidc-demo --resource-group guwe-rg-oidc-demo-1 --output table",
+			wantErr: false,
+		},
+		{
+			name:    "read-only nested show command - 2 levels",
+			input:   "az aks nodepool show --name nodepool1 --cluster-name aks-demo --resource-group myRG",
+			wantErr: false,
+		},
+		{
+			name:    "read-only nested list command - network vnet",
+			input:   "az network vnet list --resource-group myRG",
+			wantErr: false,
+		},
+		{
+			name:    "read-only nested list-skus command - 2 levels",
+			input:   "az aks nodepool list-skus --cluster-name aks-demo --resource-group myRG",
+			wantErr: false,
+		},
+		{
+			name:    "read-only deeply nested list - 3 levels",
+			input:   "az network vnet subnet list --resource-group myRG --vnet-name myVnet",
+			wantErr: false,
+		},
+		{
+			name:    "read-only deeply nested show - 3 levels",
+			input:   "az network vnet subnet show --resource-group myRG --vnet-name myVnet --name mySubnet",
 			wantErr: false,
 		},
 		{
@@ -130,6 +176,26 @@ func TestValidator_CheckReadOnly(t *testing.T) {
 		{
 			name:    "write command - update",
 			input:   "az vm update --name myVM --resource-group myRG",
+			wantErr: true,
+		},
+		{
+			name:    "write command - nested add",
+			input:   "az aks nodepool add --name newpool --cluster-name aks-demo --resource-group myRG",
+			wantErr: true,
+		},
+		{
+			name:    "write command - nested delete",
+			input:   "az aks nodepool delete --name oldpool --cluster-name aks-demo --resource-group myRG",
+			wantErr: true,
+		},
+		{
+			name:    "write command - nested update",
+			input:   "az aks nodepool update --name pool1 --cluster-name aks-demo --resource-group myRG",
+			wantErr: true,
+		},
+		{
+			name:    "write command - deeply nested create",
+			input:   "az network vnet subnet create --resource-group myRG --vnet-name myVnet --name mySubnet",
 			wantErr: true,
 		},
 	}
