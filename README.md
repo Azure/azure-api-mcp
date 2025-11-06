@@ -27,11 +27,11 @@ go build -o bin/azure-api-mcp ./cmd/server
 ### Running
 
 ```bash
-# Default mode (stdio transport, read-only)
+# Default mode (stdio transport)
 ./bin/azure-api-mcp
 
-# Non-read-only mode
-./bin/azure-api-mcp --readonly=false
+# Enable read-only mode
+./bin/azure-api-mcp --readonly=true
 
 # With security policy
 ./bin/azure-api-mcp --enable-security-policy --security-policy-file configs/security-policy.yaml
@@ -103,7 +103,7 @@ The primary tool for executing Azure CLI commands.
 --port int                 Port to listen on for non-stdio transport (default 8000)
 
 # Security configuration
---readonly                 Enable read-only mode (default true)
+--readonly                 Enable read-only mode (default false)
 --readonly-patterns-file   Custom read-only patterns file
 --enable-security-policy   Enable security policy validation
 --security-policy-file     Custom security policy file
@@ -148,11 +148,11 @@ AZURE_SUBSCRIPTION_ID=xxx
      - az ad user delete
      ```
 
-3. **Read-Only Mode** (default behavior)
+3. **Read-Only Mode** (optional, via `--readonly=true`)
    - Allow-list defined in `configs/readonly-operations.yaml`
    - Only permits safe read operations: list, show, get-*, check-*, describe, query
   - Includes extended list-* discovery commands (e.g. `az vm list-sizes`, `az vm list-skus`) via generalized `list-[a-z-]+` pattern
-   - Must explicitly disable (`--readonly=false`) for write operations
+   - Must explicitly enable (`--readonly=true`) to restrict to read operations only
 
 ## Development
 
