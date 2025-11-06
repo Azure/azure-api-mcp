@@ -4,6 +4,7 @@ var DefaultReadOnlyPatterns = `patterns:
   - "^az ([a-z-]+ )+list($| )"
   - "^az ([a-z-]+ )+list-[a-z-]+($| )"
   - "^az ([a-z-]+ )+show($| )"
+  - "^az ([a-z-]+ )+show-[a-z-]+($| )"
   - "^az ([a-z-]+ )+get-[a-z-]+($| )"
   - "^az account show($| )"
   - "^az account list($| )"
@@ -11,6 +12,8 @@ var DefaultReadOnlyPatterns = `patterns:
   - "^az ([a-z-]+ )+check-[a-z-]+($| )"
   - "^az ([a-z-]+ )+describe($| )"
   - "^az ([a-z-]+ )+query($| )"
+  - "^az ([a-z-]+ )+exists($| )"
+  - "^az ([a-z-]+ )+browse($| )"
 `
 
 var DefaultSecurityPolicy = `version: "1.0"
