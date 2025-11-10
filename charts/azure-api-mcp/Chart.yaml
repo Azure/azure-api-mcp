@@ -1,0 +1,17 @@
+apiVersion: v2
+name: azure-api-mcp
+description: A Helm chart for deploying Azure API MCP server on Kubernetes with Workload Identity support
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - azure
+  - mcp
+  - model-context-protocol
+  - azure-cli
+  - workload-identity
+maintainers:
+  - name: Azure API MCP Team
+home: https://github.com/Azure/azure-api-mcp
+sources:
+  - https://github.com/Azure/azure-api-mcp

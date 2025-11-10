@@ -1,0 +1,79 @@
+🎉 Azure API MCP has been successfully deployed!
+
+Release Name: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+{{- if .Values.workloadIdentity.enabled }}
+{{- if or (not .Values.auth.azure.clientId) (not .Values.auth.azure.tenantId) }}
+
+⚠️  CRITICAL: Required authentication parameters are missing!
+   
+   Workload Identity is enabled but the following required parameters are not set:
+   {{- if not .Values.auth.azure.clientId }}
+   - auth.azure.clientId (REQUIRED)
+   {{- end }}
+   {{- if not .Values.auth.azure.tenantId }}
+   - auth.azure.tenantId (REQUIRED)
+   {{- end }}
+
+   Your pods will fail to start with authentication errors!
+
+   Please upgrade with:
+   helm upgrade {{ .Release.Name }} ./charts/azure-api-mcp \
+     --set auth.azure.tenantId=<your-tenant-id> \
+     --set auth.azure.clientId=<your-managed-identity-client-id> \
+     --set auth.azure.subscriptionId=<your-subscription-id>
+
+{{- end }}
+{{- end }}
+
+To verify the deployment:
+
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "azure-api-mcp.name" . }}
+
+To check the logs:
+
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "azure-api-mcp.name" . }} --tail=50
+
+To access the service:
+
+  {{- if eq .Values.service.type "ClusterIP" }}
+  # Port forward to access locally
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "azure-api-mcp.fullname" . }} 8000:{{ .Values.service.port }}
+
+  # Then access:
+  curl http://localhost:8000/health
+  {{- else if eq .Values.service.type "LoadBalancer" }}
+  # Get the external IP
+  kubectl get svc -n {{ .Release.Namespace }} {{ include "azure-api-mcp.fullname" . }}
+  {{- end }}
+
+Configuration:
+  - Transport: {{ .Values.transport }}
+  - Auth Method: {{ .Values.auth.method }}
+  - Read-Only Mode: {{ .Values.security.readonly }}
+  - Security Policy: {{ .Values.security.enableSecurityPolicy }}
+  {{- if .Values.workloadIdentity.enabled }}
+  - Workload Identity: Enabled
+  {{- end }}
+
+{{- if and .Values.workloadIdentity.enabled .Values.auth.azure.clientId .Values.auth.azure.tenantId }}
+
+Next steps for Workload Identity setup (if not done):
+
+1. Create Azure Managed Identity and federated credential:
+
+   export IDENTITY_CLIENT_ID="{{ .Values.auth.azure.clientId }}"
+   export TENANT_ID="{{ .Values.auth.azure.tenantId }}"
+   {{- if .Values.auth.azure.subscriptionId }}
+   export SUBSCRIPTION_ID="{{ .Values.auth.azure.subscriptionId }}"
+   {{- end }}
+   
+   See the chart README for detailed RBAC configuration instructions.
+
+2. Verify authentication:
+
+   kubectl exec -it -n {{ .Release.Namespace }} $(kubectl get pod -n {{ .Release.Namespace }} -l app.kubernetes.io/name={{ include "azure-api-mcp.name" . }} -o jsonpath='{.items[0].metadata.name}') -- az account show
+{{- end }}
+
+For more information, visit: https://github.com/Azure/azure-api-mcp

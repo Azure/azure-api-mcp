@@ -1,0 +1,139 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "azure-api-mcp.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "azure-api-mcp.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "azure-api-mcp.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "azure-api-mcp.selectorLabels" . | nindent 8 }}
+        {{- if .Values.workloadIdentity.enabled }}
+        azure.workload.identity/use: "true"
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "azure-api-mcp.serviceAccountName" . }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}
+        {{- with .Values.securityContext }}
+        securityContext:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.port }}
+          protocol: TCP
+        env:
+        {{- if .Values.auth.azure.tenantId }}
+        - name: AZURE_TENANT_ID
+          value: {{ .Values.auth.azure.tenantId | quote }}
+        {{- end }}
+        {{- if .Values.auth.azure.clientId }}
+        - name: AZURE_CLIENT_ID
+          value: {{ .Values.auth.azure.clientId | quote }}
+        {{- end }}
+        {{- if .Values.workloadIdentity.enabled }}
+        - name: AZURE_FEDERATED_TOKEN_FILE
+          value: "/var/run/secrets/azure/tokens/azure-identity-token"
+        {{- end }}
+        {{- if .Values.auth.azure.subscriptionId }}
+        - name: AZURE_SUBSCRIPTION_ID
+          value: {{ .Values.auth.azure.subscriptionId | quote }}
+        {{- end }}
+        - name: AZ_AUTH_METHOD
+          value: {{ .Values.auth.method | quote }}
+        {{- if .Values.auth.skipSetup }}
+        - name: AZ_API_MCP_SKIP_AUTH_SETUP
+          value: "true"
+        {{- end }}
+        args:
+        - "--transport"
+        - {{ .Values.transport | quote }}
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - {{ .Values.port | quote }}
+        - "--readonly={{ .Values.security.readonly }}"
+        {{- if .Values.security.enableSecurityPolicy }}
+        - "--enable-security-policy"
+        {{- end }}
+        {{- if .Values.security.customSecurityPolicyYaml }}
+        - "--security-policy-file"
+        - "/etc/azure-api-mcp/security-policy.yaml"
+        {{- end }}
+        {{- if .Values.security.customReadonlyPatternsYaml }}
+        - "--readonly-patterns-file"
+        - "/etc/azure-api-mcp/readonly-patterns.yaml"
+        {{- end }}
+        - "--timeout"
+        - {{ .Values.security.timeout | quote }}
+        {{- with .Values.livenessProbe }}
+        livenessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.readinessProbe }}
+        readinessProbe:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        {{- if .Values.workloadIdentity.enabled }}
+        - name: azure-identity-token
+          mountPath: /var/run/secrets/azure/tokens
+          readOnly: true
+        {{- end }}
+        {{- if or .Values.security.customSecurityPolicyYaml .Values.security.customReadonlyPatternsYaml }}
+        - name: config
+          mountPath: /etc/azure-api-mcp
+          readOnly: true
+        {{- end }}
+      volumes:
+      {{- if .Values.workloadIdentity.enabled }}
+      - name: azure-identity-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: azure-identity-token
+              expirationSeconds: 86400
+              audience: api://AzureADTokenExchange
+      {{- end }}
+      {{- if or .Values.security.customSecurityPolicyYaml .Values.security.customReadonlyPatternsYaml }}
+      - name: config
+        configMap:
+          name: {{ include "azure-api-mcp.fullname" . }}-config
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
