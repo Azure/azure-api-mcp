@@ -31,7 +31,7 @@ spec:
       serviceAccountName: azure-api-mcp-sa
       containers:
       - name: azure-api-mcp
-        image: ${CONTAINER_IMAGE}
+        image: ${CONTAINER_IMAGE:-ghcr.io/azure/azure-api-mcp:latest}
         imagePullPolicy: Always
         ports:
         - containerPort: 8000

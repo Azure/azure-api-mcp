@@ -217,10 +217,10 @@ export TENANT_ID=$(az account show --query "tenantId" --output tsv)
 echo "Tenant ID: $TENANT_ID"
 ```
 
-If `CONTAINER_IMAGE` is not set (uses default `guwe/azure-api-mcp:latest`):
+If `CONTAINER_IMAGE` is not set (uses default `ghcr.io/azure/azure-api-mcp:latest`):
 
 ```bash
-export CONTAINER_IMAGE="<your-registry>/azure-api-mcp:latest"
+export CONTAINER_IMAGE="ghcr.io/azure/azure-api-mcp:latest"
 ```
 
 Use `envsubst` to substitute the variables in deployment.yaml:
