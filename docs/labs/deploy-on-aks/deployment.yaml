@@ -1,0 +1,111 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: azure-api-mcp-sa
+  namespace: default
+  annotations:
+    azure.workload.identity/client-id: "$IDENTITY_CLIENT_ID"
+  labels:
+    azure.workload.identity/use: "true"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-api-mcp
+  namespace: default
+  labels:
+    app: azure-api-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: azure-api-mcp
+  template:
+    metadata:
+      labels:
+        app: azure-api-mcp
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: azure-api-mcp-sa
+      containers:
+      - name: azure-api-mcp
+        image: ${CONTAINER_IMAGE:-ghcr.io/azure/azure-api-mcp:latest}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        - name: AZURE_TENANT_ID
+          value: "$TENANT_ID"
+        - name: AZURE_CLIENT_ID
+          value: "$IDENTITY_CLIENT_ID"
+        - name: AZURE_FEDERATED_TOKEN_FILE
+          value: "/var/run/secrets/azure/tokens/azure-identity-token"
+        - name: AZURE_SUBSCRIPTION_ID
+          value: "$SUBSCRIPTION_ID"
+        - name: AZ_AUTH_METHOD
+          value: "workload-identity"
+        args:
+        - "--transport"
+        - "streamable-http"
+        - "--host"
+        - "0.0.0.0"
+        - "--port"
+        - "8000"
+        - "--readonly=true"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: azure-identity-token
+          mountPath: /var/run/secrets/azure/tokens
+          readOnly: true
+      volumes:
+      - name: azure-identity-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: azure-identity-token
+              expirationSeconds: 86400
+              audience: api://AzureADTokenExchange
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: azure-api-mcp
+  namespace: default
+  labels:
+    app: azure-api-mcp
+spec:
+  type: ClusterIP
+  selector:
+    app: azure-api-mcp
+  ports:
+  - name: http
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
