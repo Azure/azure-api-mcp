@@ -11,7 +11,7 @@ func RegisterCallAzTool(readOnlyMode bool, defaultSubscription string) mcp.Tool 
 		mcp.WithDescription(description),
 		mcp.WithString("cli_command",
 			mcp.Required(),
-			mcp.Description("The Azure CLI command to execute (e.g., 'az vm list --resource-group myRG')"),
+			mcp.Description("The Azure CLI command to execute (e.g., 'az vm list --resource-group myRG'). Must be a single command without pipes, redirects, or shell substitutions."),
 		),
 		mcp.WithNumber("timeout",
 			mcp.Description("Optional timeout in seconds (default: 120)"),
@@ -31,6 +31,10 @@ func generateToolDescription(readOnlyMode bool, defaultSubscription string) stri
 	if defaultSubscription != "" {
 		baseDesc += "Default Subscription: " + defaultSubscription + "\n\n"
 	}
+
+	baseDesc += "IMPORTANT: Commands must be simple Azure CLI invocations without shell features.\n"
+	baseDesc += "NOT allowed: pipes (|), redirects (>, <), command substitution ($(...) or ``), semicolons (;), && or ||.\n"
+	baseDesc += "If you need values from another command, call this tool multiple times sequentially.\n\n"
 
 	baseDesc += "Examples:\n"
 	baseDesc += "- List VMs: cli_command=\"az vm list --resource-group myRG\"\n"
