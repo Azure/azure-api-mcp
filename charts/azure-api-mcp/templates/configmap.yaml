@@ -1,0 +1,18 @@
+{{- if or .Values.security.customSecurityPolicyYaml .Values.security.customReadonlyPatternsYaml -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "azure-api-mcp.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "azure-api-mcp.labels" . | nindent 4 }}
+data:
+  {{- if .Values.security.customSecurityPolicyYaml }}
+  security-policy.yaml: |
+{{ .Values.security.customSecurityPolicyYaml | indent 4 }}
+  {{- end }}
+  {{- if .Values.security.customReadonlyPatternsYaml }}
+  readonly-patterns.yaml: |
+{{ .Values.security.customReadonlyPatternsYaml | indent 4 }}
+  {{- end }}
+{{- end }}

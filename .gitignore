@@ -16,7 +16,7 @@ coverage.html
 # Build artifacts
 /bin/
 /dist/
-azure-api-mcp
+/azure-api-mcp
 
 # IDE
 .vscode/

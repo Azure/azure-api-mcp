@@ -1,0 +1,81 @@
+replicaCount: 2
+
+image:
+  repository: ghcr.io/azure/azure-api-mcp
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+transport: streamable-http
+port: 8000
+
+auth:
+  method: workload-identity
+  skipSetup: false
+  azure:
+    tenantId: ""
+    clientId: ""
+    subscriptionId: ""
+
+security:
+  readonly: false
+  enableSecurityPolicy: false
+  timeout: 120
+  customSecurityPolicyYaml: ""
+  customReadonlyPatternsYaml: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+workloadIdentity:
+  enabled: true
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  annotations: {}
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
