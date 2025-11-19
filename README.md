@@ -131,7 +131,13 @@ AZURE_SUBSCRIPTION_ID=xxx
 
 ## Security Architecture
 
-### Three-tier Validation System
+### Foundation: Azure RBAC
+
+The most important security feature is **Azure RBAC integration through workload identity**. When using workload identity or managed identity authentication, all agent operations are subject to the Azure identity's RBAC role assignments. This provides enterprise-grade access control at the Azure platform level, complementing the application-level validation policies below.
+
+Example: An agent with Azure Reader role can only perform read operations regardless of application configuration, while an agent with Contributor role on a specific resource group can only affect resources within that scope.
+
+### Application-level Validation (Three-tier System)
 
 1. **Basic Security** (always enforced)
    - Must start with "az "
