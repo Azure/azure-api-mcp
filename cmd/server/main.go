@@ -24,18 +24,19 @@ func main() {
 	authCtx, authCancel := context.WithTimeout(context.Background(), authTimeout)
 	defer authCancel()
 
-	if !cfg.SkipAuthSetup {
-		authConfig := azcli.AuthConfig{
-			SkipSetup:           cfg.SkipAuthSetup,
-			AuthMethod:          cfg.AuthMethod,
-			TenantID:            cfg.TenantID,
-			ClientID:            cfg.ClientID,
-			FederatedTokenFile:  cfg.FederatedTokenFile,
-			ClientSecret:        cfg.ClientSecret,
-			DefaultSubscription: cfg.DefaultSubscription,
-		}
+	authConfig := azcli.AuthConfig{
+		SkipSetup:           cfg.SkipAuthSetup,
+		AuthMethod:          cfg.AuthMethod,
+		TenantID:            cfg.TenantID,
+		ClientID:            cfg.ClientID,
+		FederatedTokenFile:  cfg.FederatedTokenFile,
+		ClientSecret:        cfg.ClientSecret,
+		DefaultSubscription: cfg.DefaultSubscription,
+	}
 
-		authSetup := azcli.NewDefaultAuthSetup(authConfig)
+	var authSetup azcli.AuthSetup
+	if !cfg.SkipAuthSetup {
+		authSetup = azcli.NewDefaultAuthSetup(authConfig)
 		if err := authSetup.Setup(authCtx); err != nil {
 			if authCtx.Err() == context.DeadlineExceeded {
 				log.Fatalf("Authentication setup timed out after %v. This may indicate az CLI is waiting for interactive input or is not responding.", authTimeout)
@@ -65,6 +66,7 @@ func main() {
 		WorkingDir:           "",
 		SecurityPolicyFile:   cfg.SecurityPolicyFile,
 		ReadOnlyPatternsFile: cfg.ReadOnlyPatternsFile,
+		AuthSetup:            authSetup,
 	})
 	if err != nil {
 		log.Fatalf("Failed to create Azure CLI client: %v", err)

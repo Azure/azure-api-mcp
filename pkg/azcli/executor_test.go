@@ -135,3 +135,58 @@ func TestExecutor_ExecuteInvalidCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestExecutor_IsAuthError(t *testing.T) {
+	executor := &DefaultExecutor{}
+
+	tests := []struct {
+		name   string
+		stderr string
+		want   bool
+	}{
+		{
+			name:   "AADSTS error",
+			stderr: "ERROR: AADSTS70043: The refresh token has expired",
+			want:   true,
+		},
+		{
+			name:   "az login prompt",
+			stderr: "Run the command below to authenticate interactively\naz login",
+			want:   true,
+		},
+		{
+			name:   "Please run az login",
+			stderr: "ERROR: Please run 'az login' to setup account.",
+			want:   true,
+		},
+		{
+			name:   "refresh token expired",
+			stderr: "ERROR: The refresh token has expired or is invalid",
+			want:   true,
+		},
+		{
+			name:   "non-auth error",
+			stderr: "ERROR: Resource not found",
+			want:   false,
+		},
+		{
+			name:   "empty stderr",
+			stderr: "",
+			want:   false,
+		},
+		{
+			name:   "normal output",
+			stderr: "Successfully created resource",
+			want:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := executor.isAuthError(tt.stderr)
+			if got != tt.want {
+				t.Errorf("isAuthError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
