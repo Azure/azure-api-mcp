@@ -45,6 +45,12 @@ func (c *DefaultClient) ExecuteCommand(ctx context.Context, cmdStr string) (*Res
 	if err != nil {
 		var azErr *AzCliError
 		if errors.As(err, &azErr) && azErr.Type == ErrorTypeAuth && c.authSetup != nil {
+			// Authentication retry logic:
+			// When Azure CLI tokens expire (e.g., after long-running server sessions),
+			// we detect auth errors from stderr and automatically re-authenticate using
+			// the configured auth method (workload identity, managed identity, or service principal).
+			// We only retry once to avoid infinite loops. If re-authentication fails, we return
+			// the original auth error to the caller.
 			log.Printf("[INFO] Authentication error detected, attempting to re-authenticate")
 			if authErr := c.authSetup.Setup(ctx); authErr != nil {
 				log.Printf("[ERROR] Re-authentication failed: %v", authErr)

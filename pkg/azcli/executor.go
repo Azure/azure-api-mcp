@@ -162,6 +162,28 @@ func (e *DefaultExecutor) parseCommandString(cmdStr string) ([]string, error) {
 	return args, nil
 }
 
+// isAuthError detects authentication-related errors from Azure CLI stderr output.
+// This method checks for common authentication failure patterns based on actual Azure CLI error messages.
+//
+// Detected error patterns:
+//  1. AADSTS errors: Azure Active Directory STS (Security Token Service) error codes
+//     Example: "ERROR: AADSTS70043: The refresh token has expired or is invalid"
+//     Common codes: AADSTS70043 (BadTokenDueToSignInFrequency), AADSTS70008 (ExpiredOrRevokedGrant)
+//  2. Token expiration: Messages indicating expired or invalid refresh tokens
+//     Example: "The refresh token has expired or is invalid due to sign-in frequency checks"
+//  3. Login prompts: Azure CLI prompting for manual authentication
+//     Example: "Run the command below to authenticate interactively: az login"
+//     Example: "ERROR: Please run 'az login' to setup account."
+//
+// Note: This detection is based on observed Azure CLI error message patterns (as of Azure CLI 2.x).
+// While these patterns cover the most common authentication failures, Azure CLI may introduce
+// new error message formats in future versions. The patterns are conservative to minimize
+// false positives (incorrectly detecting non-auth errors as auth errors).
+//
+// References:
+//   - AADSTS error codes: https://learn.microsoft.com/en-us/entra/identity-platform/reference-error-codes
+//   - Azure CLI authentication: https://learn.microsoft.com/cli/azure/authenticate-azure-cli-interactively
+//   - Tested against Azure CLI 2.x error outputs for token expiration scenarios
 func (e *DefaultExecutor) isAuthError(stderr string) bool {
 	if strings.Contains(stderr, "ERROR: AADSTS") {
 		return true
