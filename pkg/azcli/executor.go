@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"log"
 )
 
 type Executor interface {
@@ -86,6 +88,11 @@ func (e *DefaultExecutor) Execute(ctx context.Context, cmdStr string) (*Result, 
 	errorMsg := ""
 	if stderr.Len() > 0 {
 		errorMsg = stderr.String()
+		if e.isAuthError(errorMsg) {
+			log.Printf("[WARN] Authentication error detected in command output")
+			return nil, NewAzCliError(ErrorTypeAuth, "authentication expired or invalid", cmdStr).
+				WithContext("stderr", errorMsg)
+		}
 	}
 
 	result := &Result{
@@ -153,4 +160,20 @@ func (e *DefaultExecutor) parseCommandString(cmdStr string) ([]string, error) {
 	}
 
 	return args, nil
+}
+
+func (e *DefaultExecutor) isAuthError(stderr string) bool {
+	if strings.Contains(stderr, "ERROR: AADSTS") {
+		return true
+	}
+	if strings.Contains(stderr, "az login") && strings.Contains(stderr, "authenticate") {
+		return true
+	}
+	if strings.Contains(stderr, "Please run 'az login'") {
+		return true
+	}
+	if strings.Contains(stderr, "refresh token has expired") {
+		return true
+	}
+	return false
 }

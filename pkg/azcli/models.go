@@ -36,6 +36,7 @@ type ClientConfig struct {
 	WorkingDir           string
 	SecurityPolicyFile   string
 	ReadOnlyPatternsFile string
+	AuthSetup            AuthSetup
 }
 
 type SecurityPolicy struct {
