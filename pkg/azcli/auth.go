@@ -3,10 +3,11 @@ package azcli
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/Azure/azure-api-mcp/internal/logger"
 )
 
 type AuthSetup interface {
@@ -41,7 +42,7 @@ func (s *DefaultAuthSetup) Setup(ctx context.Context) error {
 	case "service-principal":
 		return s.setupServicePrincipal(ctx)
 	case "":
-		log.Println("[INFO] No automatic authentication method detected. Assuming user is already logged in with 'az login'.")
+		logger.Info("No automatic authentication method detected. Assuming user is already logged in with 'az login'.")
 		return nil
 	default:
 		return fmt.Errorf("unknown auth method: %s (supported: workload-identity, managed-identity, service-principal)", authMethod)

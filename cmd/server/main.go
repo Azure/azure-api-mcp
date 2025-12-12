@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Azure/azure-api-mcp/internal/config"
+	"github.com/Azure/azure-api-mcp/internal/logger"
 	mcpserver "github.com/Azure/azure-api-mcp/internal/server"
 	"github.com/Azure/azure-api-mcp/internal/version"
 	"github.com/Azure/azure-api-mcp/pkg/azcli"
@@ -17,8 +18,15 @@ import (
 func main() {
 	cfg := config.NewConfig()
 	if err := cfg.ParseFlags(); err != nil {
-		log.Fatalf("Configuration error: %v", err)
+		fmt.Fprintf(os.Stderr, "Configuration error: %v\n", err)
+		os.Exit(1)
 	}
+
+	if err := logger.SetLevel(cfg.LogLevel); err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid log level '%s': %v\n", cfg.LogLevel, err)
+		os.Exit(1)
+	}
+	logger.Debugf("Log level set to: %s", cfg.LogLevel)
 
 	authTimeout := 30 * time.Second
 	authCtx, authCancel := context.WithTimeout(context.Background(), authTimeout)
@@ -39,25 +47,30 @@ func main() {
 		authSetup = azcli.NewDefaultAuthSetup(authConfig)
 		if err := authSetup.Setup(authCtx); err != nil {
 			if authCtx.Err() == context.DeadlineExceeded {
-				log.Fatalf("Authentication setup timed out after %v. This may indicate az CLI is waiting for interactive input or is not responding.", authTimeout)
+				logger.Errorf("Authentication setup timed out after %v. This may indicate az CLI is waiting for interactive input or is not responding.", authTimeout)
+				os.Exit(1)
 			}
-			log.Fatalf("Authentication setup failed: %v", err)
+			logger.Errorf("Authentication setup failed: %v", err)
+			os.Exit(1)
 		}
-		log.Printf("Authentication setup completed successfully")
+		logger.Info("Authentication setup completed successfully")
 	}
 
 	authValidator := &azcli.DefaultAuthValidator{}
 	if err := authValidator.ValidateAuth(authCtx); err != nil {
 		if authCtx.Err() == context.DeadlineExceeded {
-			log.Fatalf("Authentication validation timed out after %v. This may indicate az CLI is not configured or is waiting for interactive input.", authTimeout)
+			logger.Errorf("Authentication validation timed out after %v. This may indicate az CLI is not configured or is waiting for interactive input.", authTimeout)
+			os.Exit(1)
 		}
 		if cfg.SkipAuthSetup {
-			log.Fatalf("Authentication validation failed: %v\nPlease run 'az login' manually first or set AZ_API_MCP_SKIP_AUTH_SETUP=false", err)
+			logger.Errorf("Authentication validation failed: %v\nPlease run 'az login' manually first or set AZ_API_MCP_SKIP_AUTH_SETUP=false", err)
+			os.Exit(1)
 		} else {
-			log.Fatalf("Authentication validation failed: %v", err)
+			logger.Errorf("Authentication validation failed: %v", err)
+			os.Exit(1)
 		}
 	}
-	log.Printf("Authentication validated successfully")
+	logger.Info("Authentication validated successfully")
 
 	client, err := azcli.NewClient(azcli.ClientConfig{
 		ReadOnlyMode:         cfg.ReadOnlyMode,
@@ -69,7 +82,8 @@ func main() {
 		AuthSetup:            authSetup,
 	})
 	if err != nil {
-		log.Fatalf("Failed to create Azure CLI client: %v", err)
+		logger.Errorf("Failed to create Azure CLI client: %v", err)
+		os.Exit(1)
 	}
 
 	mcpServer := server.NewMCPServer(
@@ -81,16 +95,17 @@ func main() {
 	callAzHandler := mcpserver.CallAzHandler(client)
 	mcpServer.AddTool(callAzTool, callAzHandler)
 
-	log.Printf("Starting Azure API MCP server (version %s)", version.GetVersion())
+	logger.Infof("Starting Azure API MCP server (version %s)", version.GetVersion())
 	if err := runServer(mcpServer, cfg); err != nil {
-		log.Fatalf("Server error: %v", err)
+		logger.Errorf("Server error: %v", err)
+		os.Exit(1)
 	}
 }
 
 func runServer(mcpServer *server.MCPServer, cfg *config.Config) error {
 	switch cfg.Transport {
 	case "stdio":
-		log.Printf("Listening for requests on STDIO...")
+		logger.Info("Listening for requests on STDIO...")
 		return server.ServeStdio(mcpServer)
 
 	case "sse":
@@ -116,12 +131,12 @@ func runServer(mcpServer *server.MCPServer, cfg *config.Config) error {
 			server.WithHTTPServer(customServer),
 		)
 
-		log.Printf("SSE server listening on %s", addr)
-		log.Printf("Base URL: %s", baseURL)
-		log.Printf("SSE endpoint available at: http://%s/sse", addr)
-		log.Printf("Message endpoint available at: http://%s/message", addr)
-		log.Printf("Health check available at: http://%s/health", addr)
-		log.Printf("Connect to /sse for real-time events, send JSON-RPC to /message")
+		logger.Infof("SSE server listening on %s", addr)
+		logger.Infof("Base URL: %s", baseURL)
+		logger.Infof("SSE endpoint available at: http://%s/sse", addr)
+		logger.Infof("Message endpoint available at: http://%s/message", addr)
+		logger.Infof("Health check available at: http://%s/health", addr)
+		logger.Info("Connect to /sse for real-time events, send JSON-RPC to /message")
 
 		return sseServer.Start(addr)
 
@@ -148,10 +163,10 @@ func runServer(mcpServer *server.MCPServer, cfg *config.Config) error {
 
 		mux.Handle("/mcp", streamableServer)
 
-		log.Printf("Streamable HTTP server listening on %s", addr)
-		log.Printf("MCP endpoint available at: http://%s/mcp", addr)
-		log.Printf("Health check available at: http://%s/health", addr)
-		log.Printf("Send POST requests to /mcp to initialize session and obtain Mcp-Session-Id")
+		logger.Infof("Streamable HTTP server listening on %s", addr)
+		logger.Infof("MCP endpoint available at: http://%s/mcp", addr)
+		logger.Infof("Health check available at: http://%s/health", addr)
+		logger.Info("Send POST requests to /mcp to initialize session and obtain Mcp-Session-Id")
 
 		return customServer.ListenAndServe()
 
