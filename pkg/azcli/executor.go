@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"log"
+	"github.com/Azure/azure-api-mcp/internal/logger"
 )
 
 type Executor interface {
@@ -89,7 +89,7 @@ func (e *DefaultExecutor) Execute(ctx context.Context, cmdStr string) (*Result, 
 	if stderr.Len() > 0 {
 		errorMsg = stderr.String()
 		if e.isAuthError(errorMsg) {
-			log.Printf("[WARN] Authentication error detected in command output")
+			logger.Warn("Authentication error detected in command output")
 			return nil, NewAzCliError(ErrorTypeAuth, "authentication expired or invalid", cmdStr).
 				WithContext("stderr", errorMsg)
 		}
