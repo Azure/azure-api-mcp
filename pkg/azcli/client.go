@@ -3,7 +3,8 @@ package azcli
 import (
 	"context"
 	"errors"
-	"log"
+
+	"github.com/Azure/azure-api-mcp/internal/logger"
 )
 
 type Client interface {
@@ -51,12 +52,12 @@ func (c *DefaultClient) ExecuteCommand(ctx context.Context, cmdStr string) (*Res
 			// the configured auth method (workload identity, managed identity, or service principal).
 			// We only retry once to avoid infinite loops. If re-authentication fails, we return
 			// the original auth error to the caller.
-			log.Printf("[INFO] Authentication error detected, attempting to re-authenticate")
+			logger.Info("Authentication error detected, attempting to re-authenticate")
 			if authErr := c.authSetup.Setup(ctx); authErr != nil {
-				log.Printf("[ERROR] Re-authentication failed: %v", authErr)
+				logger.Errorf("Re-authentication failed: %v", authErr)
 				return nil, err
 			}
-			log.Printf("[INFO] Re-authentication successful, retrying command")
+			logger.Info("Re-authentication successful, retrying command")
 			return c.executor.Execute(ctx, cmdStr)
 		}
 		return nil, err
