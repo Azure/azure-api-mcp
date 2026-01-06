@@ -131,6 +131,12 @@ AZURE_SUBSCRIPTION_ID=xxx
 
 ## Security Architecture
 
+### Recommended Deployment: Workload Identity on AKS
+
+**For production use, we strongly recommend deploying this MCP server on AKS with workload identity authentication.** This decouples agent permissions from user identity and leverages Azure RBAC for enterprise-grade access control.
+
+For deployment guidance, see this reference guide for deploying MCP servers on AKS with workload identity (the steps are similar for azure-api-mcp): [Deploy MCP Server on AKS with Workload Identity](https://blog.aks.azure.com/2025/10/22/deploy-mcp-server-aks-workload-identity)
+
 ### Foundation: Azure RBAC
 
 The most important security feature is **Azure RBAC integration through workload identity**. When using workload identity or managed identity authentication, all agent operations are subject to the Azure identity's RBAC role assignments. This provides enterprise-grade access control at the Azure platform level, complementing the application-level validation policies below.
