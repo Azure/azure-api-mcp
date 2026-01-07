@@ -131,6 +131,14 @@ AZURE_SUBSCRIPTION_ID=xxx
 
 ## Security Architecture
 
+### Important Security Notes
+
+This MCP server executes Azure CLI commands provided by LLM agents. While multiple validation layers are implemented, agents may generate unexpected commands or discover validation bypasses. We strongly recommend:
+
+1. **Deploy with workload identity** - Use Azure RBAC for access control and pod security policies to limit blast radius
+2. **Use agent frameworks with intervention handlers** - Require explicit user approval before executing commands
+3. **Apply principle of least privilege** - Grant minimal permissions and enable security controls
+
 ### Recommended Deployment: Workload Identity on AKS
 
 **For production use, we strongly recommend deploying this MCP server on AKS with workload identity authentication.** This decouples agent permissions from user identity and leverages Azure RBAC for enterprise-grade access control.
