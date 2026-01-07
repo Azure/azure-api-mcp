@@ -133,11 +133,11 @@ AZURE_SUBSCRIPTION_ID=xxx
 
 ### Important Security Notes
 
-This MCP server executes Azure CLI commands provided by LLM agents. While multiple validation layers are implemented, agents may generate unexpected commands or discover validation bypasses. We strongly recommend:
+This MCP server executes Azure CLI commands provided by LLM. While multiple validation layers are implemented, LLM may generate unexpected commands or discover validation bypasses. We strongly recommend:
 
-1. **Deploy with workload identity** - Use Azure RBAC for access control and pod security policies to limit blast radius
-2. **Use agent frameworks with intervention handlers** - Require explicit user approval before executing commands
-3. **Apply principle of least privilege** - Grant minimal permissions and enable security controls
+1. **Deploy with workload identity** - Use Azure RBAC for access control and pod security policies to limit blast radius in case the mcp server pod is compromised.
+2. **Use agent frameworks with intervention handlers** - Require explicit user approval before executing commands.
+3. **Apply principle of least privilege** - Grant minimal permissions and enable security controls.
 
 ### Recommended Deployment: Workload Identity on AKS
 
