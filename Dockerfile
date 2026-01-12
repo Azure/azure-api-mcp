@@ -52,6 +52,10 @@ EXPOSE 8000
 
 USER mcp
 
+# Install Azure CLI extensions as mcp user
+RUN az extension add --name costmanagement --allow-preview true && \
+    az extension add --name application-insights --allow-preview true
+
 ENV HOME=/home/mcp
 
 ENTRYPOINT ["/usr/local/bin/azure-api-mcp"]
