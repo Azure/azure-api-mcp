@@ -2,6 +2,7 @@ package azcli
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -50,6 +51,10 @@ func (v *DefaultValidator) Validate(cmdStr string) error {
 		return err
 	}
 
+	if err := v.validateFlagSecurity(cmdStr); err != nil {
+		return err
+	}
+
 	if v.enableSecurityPolicy {
 		if err := v.checkDenyList(cmdStr); err != nil {
 			return err
@@ -79,6 +84,63 @@ func (v *DefaultValidator) validateBasicSecurity(cmdStr string) error {
 
 	if strings.Contains(cmdStr, "../") || strings.Contains(cmdStr, "..\\") {
 		return NewAzCliError(ErrorTypeInvalidCommand, "path traversal detected", cmdStr)
+	}
+
+	return nil
+}
+
+// azureHostPattern matches known Azure hostnames that are safe destinations for tokens.
+var azureHostPattern = regexp.MustCompile(`(?i)(^|\.)(azure\.com|azure\.cn|azure\.us|azure\.de|microsoftonline\.com|microsoft\.com|windows\.net|azure-api\.net|azurecr\.io|azurewebsites\.net|azureedge\.net|msecnd\.net|msftauth\.net|msauth\.net|msftidentity\.com|visualstudio\.com|aka\.ms)$`)
+
+// isAzureHost checks whether a URL points to a known Azure/Microsoft host.
+func isAzureHost(rawURL string) bool {
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+	hostname := parsed.Hostname()
+	return azureHostPattern.MatchString(hostname)
+}
+
+// extractFlagValue extracts the value of a flag from a list of tokens.
+// It handles both --flag=value and --flag value forms.
+func extractFlagValue(tokens []string, flag string) (string, bool) {
+	for i, t := range tokens {
+		if t == flag && i+1 < len(tokens) {
+			return tokens[i+1], true
+		}
+		if strings.HasPrefix(t, flag+"=") {
+			return strings.TrimPrefix(t, flag+"="), true
+		}
+	}
+	return "", false
+}
+
+// validateFlagSecurity checks for dangerous flag combinations that could lead
+// to token exfiltration. This always runs, regardless of security policy or
+// read-only mode settings.
+//
+// Specifically, it blocks "az rest" commands where:
+//   - --url points to a non-Azure host (token could be sent to an attacker)
+//   - --resource is present with a non-Azure --url (explicit token minting for exfil)
+func (v *DefaultValidator) validateFlagSecurity(cmdStr string) error {
+	tokens := strings.Fields(cmdStr)
+
+	// Only inspect "az rest" commands
+	if len(tokens) < 2 || tokens[0] != "az" || tokens[1] != "rest" {
+		return nil
+	}
+
+	// Check --url / -u flag
+	urlVal, hasURL := extractFlagValue(tokens[2:], "--url")
+	if !hasURL {
+		urlVal, hasURL = extractFlagValue(tokens[2:], "-u")
+	}
+
+	if hasURL && !isAzureHost(urlVal) {
+		return NewAzCliError(ErrorTypeCommandDenied,
+			"az rest --url must point to a known Azure host; non-Azure URLs are blocked to prevent token exfiltration",
+			cmdStr)
 	}
 
 	return nil
