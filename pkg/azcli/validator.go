@@ -173,8 +173,9 @@ func (v *DefaultValidator) checkReadOnly(cmdStr string) error {
 		"az ad app credential",
 		"az ad sp credential",
 	}
+	normalizedCmd := strings.Join(strings.Fields(cmdStr), " ")
 	for _, prefix := range credentialDenyPrefixes {
-		if strings.HasPrefix(cmdStr, prefix) {
+		if strings.HasPrefix(normalizedCmd, prefix) {
 			return NewAzCliError(ErrorTypeCommandDenied,
 				"command returns credential material and is not allowed in read-only mode", cmdStr)
 		}
