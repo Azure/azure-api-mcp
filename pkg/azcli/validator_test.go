@@ -321,6 +321,40 @@ policy:
 	}
 }
 
+func TestValidator_CheckReadOnly_CredentialBearingCommands(t *testing.T) {
+	patterns, err := LoadReadOnlyPatterns("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	validator := &DefaultValidator{
+		readOnlyMode:     true,
+		readOnlyPatterns: patterns,
+	}
+
+	credentialCommands := []struct {
+		name  string
+		input string
+	}{
+		{"get-access-token", "az account get-access-token"},
+		{"get-access-token with resource", "az account get-access-token --resource https://management.azure.com/"},
+		{"aks get-credentials", "az aks get-credentials --resource-group rg --name cluster"},
+		{"aks get-credentials with file", "az aks get-credentials --resource-group rg --name cluster --file /tmp/kube"},
+		{"fleet get-credentials", "az fleet get-credentials --resource-group rg --name fleet"},
+		{"ad app credential list", "az ad app credential list --id abc"},
+		{"ad sp credential list", "az ad sp credential list --id xyz"},
+	}
+
+	for _, tt := range credentialCommands {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.checkReadOnly(tt.input)
+			if err == nil {
+				t.Errorf("checkReadOnly(%q) expected error (credential-bearing command), got nil", tt.input)
+			}
+		})
+	}
+}
+
 func TestIsAzureHost(t *testing.T) {
 	tests := []struct {
 		name     string
