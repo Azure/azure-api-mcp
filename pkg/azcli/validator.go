@@ -165,8 +165,7 @@ func (v *DefaultValidator) checkReadOnly(cmdStr string) error {
 	}
 
 	// Hardcoded denylist: credential-bearing commands are never allowed in readonly mode,
-	// regardless of pattern matches. These return or write credential material that can
-	// be used outside of AKS-MCP to bypass the readonly access level entirely.
+	// regardless of pattern matches.
 	credentialDenyPrefixes := []string{
 		"az account get-access-token",
 		"az aks get-credentials",
