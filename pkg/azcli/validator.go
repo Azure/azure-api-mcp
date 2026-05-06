@@ -164,6 +164,23 @@ func (v *DefaultValidator) checkReadOnly(cmdStr string) error {
 		return NewAzCliError(ErrorTypeCommandDenied, "read-only patterns not loaded", cmdStr)
 	}
 
+	// Hardcoded denylist: credential-bearing commands are never allowed in readonly mode,
+	// regardless of pattern matches. These return or write credential material that can
+	// be used outside of AKS-MCP to bypass the readonly access level entirely.
+	credentialDenyPrefixes := []string{
+		"az account get-access-token",
+		"az aks get-credentials",
+		"az fleet get-credentials",
+		"az ad app credential",
+		"az ad sp credential",
+	}
+	for _, prefix := range credentialDenyPrefixes {
+		if strings.HasPrefix(cmdStr, prefix) {
+			return NewAzCliError(ErrorTypeCommandDenied,
+				"command returns credential material and is not allowed in read-only mode", cmdStr)
+		}
+	}
+
 	for _, pattern := range v.readOnlyPatterns.Patterns {
 		matched, err := regexp.MatchString(pattern, cmdStr)
 		if err != nil {
