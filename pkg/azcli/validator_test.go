@@ -73,9 +73,19 @@ func TestValidator_ValidateBasicSecurity(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "command with @ anywhere in value",
-			input:   "az ad user show --id user@example.com",
+			name:    "command with =@ file-load sigil in --query=@",
+			input:   "az vm list --query=@/etc/passwd",
 			wantErr: true,
+		},
+		{
+			name:    "command with UPN containing @ - allowed",
+			input:   "az ad user show --id user@example.com",
+			wantErr: false,
+		},
+		{
+			name:    "command with role assignee UPN - allowed",
+			input:   "az role assignment list --assignee bob@contoso.com",
+			wantErr: false,
 		},
 	}
 
@@ -272,6 +282,16 @@ func TestValidator_CheckDenyList(t *testing.T) {
 		{
 			name:    "denied - group delete",
 			input:   "az group delete --name myRG",
+			wantErr: true,
+		},
+		{
+			name:    "denied - vm delete with extra spaces (whitespace bypass attempt)",
+			input:   "az  vm  delete --name myVM",
+			wantErr: true,
+		},
+		{
+			name:    "denied - login with leading spaces",
+			input:   "az   login",
 			wantErr: true,
 		},
 	}

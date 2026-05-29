@@ -75,10 +75,23 @@ func (v *DefaultValidator) validateBasicSecurity(cmdStr string) error {
 		return NewAzCliError(ErrorTypeInvalidCommand, "command must start with 'az '", cmdStr)
 	}
 
-	dangerousChars := []string{"|", ">", "<", "&&", "||", ";", "$", "`", "\n", "@"}
+	dangerousChars := []string{"|", ">", "<", "&&", "||", ";", "$", "`", "\n"}
 	for _, char := range dangerousChars {
 		if strings.Contains(cmdStr, char) {
 			return NewAzCliError(ErrorTypeInvalidCommand, fmt.Sprintf("command contains forbidden character: %s", char), cmdStr)
+		}
+	}
+
+	// Azure CLI treats an argument value starting with "@" as a file-load
+	// directive (e.g. --query @file, --body @file, --parameters=@file.json).
+	// Reject tokens whose value position begins with "@" while still allowing
+	// "@" inside values (e.g. UPNs like alice@contoso.com).
+	for _, tok := range strings.Fields(cmdStr) {
+		if strings.HasPrefix(tok, "@") {
+			return NewAzCliError(ErrorTypeInvalidCommand, "command contains forbidden file-load token starting with '@'", cmdStr)
+		}
+		if strings.HasPrefix(tok, "-") && strings.Contains(tok, "=@") {
+			return NewAzCliError(ErrorTypeInvalidCommand, "command contains forbidden file-load token '=@'", cmdStr)
 		}
 	}
 
@@ -155,8 +168,12 @@ func (v *DefaultValidator) checkDenyList(cmdStr string) error {
 		return nil
 	}
 
+	// Normalize whitespace so entries cannot be evaded with extra spaces
+	// (e.g. "az  rest ..." vs "az rest ..."). Matches the normalization
+	// applied in checkReadOnly's credential denylist.
+	normalizedCmd := strings.Join(strings.Fields(cmdStr), " ")
 	for _, denied := range v.policy.Policy.DenyList {
-		if strings.HasPrefix(cmdStr, denied) {
+		if strings.HasPrefix(normalizedCmd, denied) {
 			return NewAzCliError(ErrorTypeCommandDenied, fmt.Sprintf("command denied by security policy: %s", denied), cmdStr)
 		}
 	}
