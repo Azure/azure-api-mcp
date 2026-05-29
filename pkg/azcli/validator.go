@@ -75,7 +75,7 @@ func (v *DefaultValidator) validateBasicSecurity(cmdStr string) error {
 		return NewAzCliError(ErrorTypeInvalidCommand, "command must start with 'az '", cmdStr)
 	}
 
-	dangerousChars := []string{"|", ">", "<", "&&", "||", ";", "$", "`", "\n"}
+	dangerousChars := []string{"|", ">", "<", "&&", "||", ";", "$", "`", "\n", "@"}
 	for _, char := range dangerousChars {
 		if strings.Contains(cmdStr, char) {
 			return NewAzCliError(ErrorTypeInvalidCommand, fmt.Sprintf("command contains forbidden character: %s", char), cmdStr)
@@ -131,8 +131,12 @@ func (v *DefaultValidator) validateFlagSecurity(cmdStr string) error {
 		return nil
 	}
 
-	// Check --url / -u flag
+	// Check --url / --uri / -u flag. Azure CLI accepts all three spellings as
+	// aliases for the request URL of `az rest`.
 	urlVal, hasURL := extractFlagValue(tokens[2:], "--url")
+	if !hasURL {
+		urlVal, hasURL = extractFlagValue(tokens[2:], "--uri")
+	}
 	if !hasURL {
 		urlVal, hasURL = extractFlagValue(tokens[2:], "-u")
 	}

