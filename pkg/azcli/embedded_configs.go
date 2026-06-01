@@ -20,10 +20,12 @@ var DefaultSecurityPolicy = `version: "1.0"
 policy:
   denyList:
     - "az account clear"
+    - "az account set"
     - "az login"
     - "az logout"
     - "az ad user delete"
     - "az vm delete"
     - "az group delete"
     - "az storage blob delete"
+    - "az rest"
 `
