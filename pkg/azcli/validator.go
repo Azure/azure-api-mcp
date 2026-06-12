@@ -186,13 +186,30 @@ func (v *DefaultValidator) checkReadOnly(cmdStr string) error {
 	}
 
 	// Hardcoded denylist: credential-bearing commands are never allowed in readonly mode,
-	// regardless of pattern matches.
+	// regardless of pattern matches. These commands match the broad read-only
+	// regexes (list / show / get-*) but actually return reusable credentials
+	// rather than metadata (keys, secrets, connection strings, kubeconfigs,
+	// access tokens, app settings).
 	credentialDenyPrefixes := []string{
 		"az account get-access-token",
 		"az aks get-credentials",
 		"az fleet get-credentials",
 		"az ad app credential",
 		"az ad sp credential",
+		"az storage account keys list",
+		"az storage account show-connection-string",
+		"az keyvault secret show",
+		"az keyvault secret list",
+		"az keyvault secret download",
+		"az cosmosdb keys list",
+		"az cosmosdb list-connection-strings",
+		"az redis list-keys",
+		"az acr credential show",
+		"az cognitiveservices account keys list",
+		"az servicebus namespace authorization-rule keys list",
+		"az eventhubs namespace authorization-rule keys list",
+		"az webapp config appsettings list",
+		"az functionapp config appsettings list",
 	}
 	normalizedCmd := strings.Join(strings.Fields(cmdStr), " ")
 	for _, prefix := range credentialDenyPrefixes {
