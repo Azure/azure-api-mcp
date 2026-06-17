@@ -403,6 +403,21 @@ func TestValidator_CheckReadOnly_CredentialBearingCommands(t *testing.T) {
 		{"fleet get-credentials", "az fleet get-credentials --resource-group rg --name fleet"},
 		{"ad app credential list", "az ad app credential list --id abc"},
 		{"ad sp credential list", "az ad sp credential list --id xyz"},
+		{"storage account keys list", "az storage account keys list --account-name mystorage --resource-group rg"},
+		{"storage account show-connection-string", "az storage account show-connection-string --name mystorage --resource-group rg"},
+		{"keyvault secret show", "az keyvault secret show --vault-name myvault --name mysecret"},
+		{"keyvault secret list", "az keyvault secret list --vault-name myvault"},
+		{"keyvault secret download", "az keyvault secret download --vault-name myvault --name mysecret --file /tmp/s"},
+		{"cosmosdb keys list", "az cosmosdb keys list --name mycosmos --resource-group rg"},
+		{"cosmosdb list-connection-strings", "az cosmosdb list-connection-strings --name mycosmos --resource-group rg"},
+		{"redis list-keys", "az redis list-keys --name myredis --resource-group rg"},
+		{"acr credential show", "az acr credential show --name myacr"},
+		{"cognitiveservices account keys list", "az cognitiveservices account keys list --name myopenai --resource-group rg"},
+		{"servicebus authorization-rule keys list", "az servicebus namespace authorization-rule keys list --resource-group rg --namespace-name myns --name RootManageSharedAccessKey"},
+		{"eventhubs authorization-rule keys list", "az eventhubs namespace authorization-rule keys list --resource-group rg --namespace-name myns --name RootManageSharedAccessKey"},
+		{"webapp config appsettings list", "az webapp config appsettings list --name myapp --resource-group rg"},
+		{"functionapp config appsettings list", "az functionapp config appsettings list --name myfunc --resource-group rg"},
+		{"whitespace-bypass attempt", "az  storage  account  keys  list --account-name mystorage --resource-group rg"},
 	}
 
 	for _, tt := range credentialCommands {
