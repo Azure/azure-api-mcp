@@ -38,11 +38,16 @@ func NewClient(cfg ClientConfig) (Client, error) {
 }
 
 func (c *DefaultClient) ExecuteCommand(ctx context.Context, cmdStr string) (*Result, error) {
-	if err := c.validator.Validate(cmdStr); err != nil {
+	argv, err := tokenizeCommand(cmdStr)
+	if err != nil {
+		return nil, NewAzCliError(ErrorTypeInvalidCommand, err.Error(), cmdStr)
+	}
+
+	if err := c.validator.Validate(cmdStr, argv); err != nil {
 		return nil, err
 	}
 
-	result, err := c.executor.Execute(ctx, cmdStr)
+	result, err := c.executor.Execute(ctx, cmdStr, argv)
 	if err != nil {
 		var azErr *AzCliError
 		if errors.As(err, &azErr) && azErr.Type == ErrorTypeAuth && c.authSetup != nil {
@@ -58,7 +63,7 @@ func (c *DefaultClient) ExecuteCommand(ctx context.Context, cmdStr string) (*Res
 				return nil, err
 			}
 			logger.Info("Re-authentication successful, retrying command")
-			return c.executor.Execute(ctx, cmdStr)
+			return c.executor.Execute(ctx, cmdStr, argv)
 		}
 		return nil, err
 	}
@@ -67,5 +72,9 @@ func (c *DefaultClient) ExecuteCommand(ctx context.Context, cmdStr string) (*Res
 }
 
 func (c *DefaultClient) ValidateCommand(cmdStr string) error {
-	return c.validator.Validate(cmdStr)
+	argv, err := tokenizeCommand(cmdStr)
+	if err != nil {
+		return NewAzCliError(ErrorTypeInvalidCommand, err.Error(), cmdStr)
+	}
+	return c.validator.Validate(cmdStr, argv)
 }

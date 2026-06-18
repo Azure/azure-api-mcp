@@ -10,8 +10,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Validator inspects a command before execution. The caller is responsible for
+// producing argv via tokenizeCommand and passing both the raw cmdStr (for
+// error-message context) and the canonical argv (for all token-level
+// decisions). Keeping both layers on the same argv eliminates the entire class
+// of tokenizer-divergence bypasses where a quoted payload looks one way to the
+// guard and another way to the executor.
 type Validator interface {
-	Validate(cmdStr string) error
+	Validate(cmdStr string, argv []string) error
 }
 
 type DefaultValidator struct {
@@ -19,6 +25,40 @@ type DefaultValidator struct {
 	enableSecurityPolicy bool
 	policy               *SecurityPolicy
 	readOnlyPatterns     *ReadOnlyPatterns
+
+	// policyDenyArgv is the deny list pre-tokenized once at load time so
+	// checkDenyList can match by structural argv-prefix instead of raw-string
+	// HasPrefix. Empty when enableSecurityPolicy is false.
+	policyDenyArgv [][]string
+
+	// credentialDenyArgv is the hardcoded credential-bearing command deny
+	// list, pre-tokenized for structural argv-prefix matching.
+	credentialDenyArgv [][]string
+}
+
+// credentialDenyPrefixes lists commands that return reusable credentials.
+// These match the broad read-only regexes (list / show / get-*) but are never
+// allowed in read-only mode regardless of pattern matches.
+var credentialDenyPrefixes = []string{
+	"az account get-access-token",
+	"az aks get-credentials",
+	"az fleet get-credentials",
+	"az ad app credential",
+	"az ad sp credential",
+	"az storage account keys list",
+	"az storage account show-connection-string",
+	"az keyvault secret show",
+	"az keyvault secret list",
+	"az keyvault secret download",
+	"az cosmosdb keys list",
+	"az cosmosdb list-connection-strings",
+	"az redis list-keys",
+	"az acr credential show",
+	"az cognitiveservices account keys list",
+	"az servicebus namespace authorization-rule keys list",
+	"az eventhubs namespace authorization-rule keys list",
+	"az webapp config appsettings list",
+	"az functionapp config appsettings list",
 }
 
 func NewDefaultValidator(cfg ClientConfig) (*DefaultValidator, error) {
@@ -33,6 +73,7 @@ func NewDefaultValidator(cfg ClientConfig) (*DefaultValidator, error) {
 			return nil, err
 		}
 		validator.policy = policy
+		validator.policyDenyArgv = tokenizePolicyEntries(policy.Policy.DenyList)
 	}
 
 	if cfg.ReadOnlyMode {
@@ -43,26 +84,44 @@ func NewDefaultValidator(cfg ClientConfig) (*DefaultValidator, error) {
 		validator.readOnlyPatterns = patterns
 	}
 
+	validator.credentialDenyArgv = tokenizePolicyEntries(credentialDenyPrefixes)
+
 	return validator, nil
 }
 
-func (v *DefaultValidator) Validate(cmdStr string) error {
-	if err := v.validateBasicSecurity(cmdStr); err != nil {
+// tokenizePolicyEntries pre-tokenizes every deny-list string once so request-
+// time matching is pure structural slice-prefix comparison and cannot be
+// evaded by quoting. Entries that fail to tokenize (malformed) are skipped
+// because they could never match a real argv.
+func tokenizePolicyEntries(entries []string) [][]string {
+	out := make([][]string, 0, len(entries))
+	for _, e := range entries {
+		toks, err := tokenizeCommand(e)
+		if err != nil || len(toks) == 0 {
+			continue
+		}
+		out = append(out, toks)
+	}
+	return out
+}
+
+func (v *DefaultValidator) Validate(cmdStr string, argv []string) error {
+	if err := v.validateBasicSecurity(cmdStr, argv); err != nil {
 		return err
 	}
 
-	if err := v.validateFlagSecurity(cmdStr); err != nil {
+	if err := v.validateFlagSecurity(cmdStr, argv); err != nil {
 		return err
 	}
 
 	if v.enableSecurityPolicy {
-		if err := v.checkDenyList(cmdStr); err != nil {
+		if err := v.checkDenyList(cmdStr, argv); err != nil {
 			return err
 		}
 	}
 
 	if v.readOnlyMode {
-		if err := v.checkReadOnly(cmdStr); err != nil {
+		if err := v.checkReadOnly(cmdStr, argv); err != nil {
 			return err
 		}
 	}
@@ -70,11 +129,17 @@ func (v *DefaultValidator) Validate(cmdStr string) error {
 	return nil
 }
 
-func (v *DefaultValidator) validateBasicSecurity(cmdStr string) error {
-	if !strings.HasPrefix(cmdStr, "az ") {
-		return NewAzCliError(ErrorTypeInvalidCommand, "command must start with 'az '", cmdStr)
-	}
-
+// validateBasicSecurity enforces the always-on guards.
+//
+// The first two checks (dangerous characters and path traversal) intentionally
+// run on the raw cmdStr because they are literal byte-pattern guards whose
+// meaning is independent of tokenization — a shell metacharacter is dangerous
+// whether it is quoted or not, and we want the human-approved cli_command
+// text to be obviously shell-safe.
+//
+// The remaining checks run on argv so a quoted payload cannot hide a
+// dangerous shape from the guard while still reaching the executor unchanged.
+func (v *DefaultValidator) validateBasicSecurity(cmdStr string, argv []string) error {
 	dangerousChars := []string{"|", ">", "<", "&&", "||", ";", "$", "`", "\n"}
 	for _, char := range dangerousChars {
 		if strings.Contains(cmdStr, char) {
@@ -82,21 +147,26 @@ func (v *DefaultValidator) validateBasicSecurity(cmdStr string) error {
 		}
 	}
 
+	if strings.Contains(cmdStr, "../") || strings.Contains(cmdStr, "..\\") {
+		return NewAzCliError(ErrorTypeInvalidCommand, "path traversal detected", cmdStr)
+	}
+
+	if len(argv) == 0 || argv[0] != "az" {
+		return NewAzCliError(ErrorTypeInvalidCommand, "command must start with 'az '", cmdStr)
+	}
+
 	// Azure CLI treats an argument value starting with "@" as a file-load
 	// directive (e.g. --query @file, --body @file, --parameters=@file.json).
 	// Reject tokens whose value position begins with "@" while still allowing
-	// "@" inside values (e.g. UPNs like alice@contoso.com).
-	for _, tok := range strings.Fields(cmdStr) {
+	// "@" inside values (e.g. UPNs like alice@contoso.com). Running on argv
+	// (not strings.Fields(cmdStr)) means a quoted "@/etc/passwd" still trips.
+	for _, tok := range argv {
 		if strings.HasPrefix(tok, "@") {
 			return NewAzCliError(ErrorTypeInvalidCommand, "command contains forbidden file-load token starting with '@'", cmdStr)
 		}
 		if strings.HasPrefix(tok, "-") && strings.Contains(tok, "=@") {
 			return NewAzCliError(ErrorTypeInvalidCommand, "command contains forbidden file-load token '=@'", cmdStr)
 		}
-	}
-
-	if strings.Contains(cmdStr, "../") || strings.Contains(cmdStr, "..\\") {
-		return NewAzCliError(ErrorTypeInvalidCommand, "path traversal detected", cmdStr)
 	}
 
 	return nil
@@ -136,22 +206,26 @@ func extractFlagValue(tokens []string, flag string) (string, bool) {
 // Specifically, it blocks "az rest" commands where:
 //   - --url points to a non-Azure host (token could be sent to an attacker)
 //   - --resource is present with a non-Azure --url (explicit token minting for exfil)
-func (v *DefaultValidator) validateFlagSecurity(cmdStr string) error {
-	tokens := strings.Fields(cmdStr)
-
+//   - --resource is present without a recognizable --url at all (token minting
+//     against an unknown destination)
+//
+// All decisions run on argv produced by the shared lexer, so a quoted flag
+// name cannot be invisible to the guard while still being reconstructed into
+// a dangerous argv by the executor.
+func (v *DefaultValidator) validateFlagSecurity(cmdStr string, argv []string) error {
 	// Only inspect "az rest" commands
-	if len(tokens) < 2 || tokens[0] != "az" || tokens[1] != "rest" {
+	if len(argv) < 2 || argv[0] != "az" || argv[1] != "rest" {
 		return nil
 	}
 
 	// Check --url / --uri / -u flag. Azure CLI accepts all three spellings as
 	// aliases for the request URL of `az rest`.
-	urlVal, hasURL := extractFlagValue(tokens[2:], "--url")
+	urlVal, hasURL := extractFlagValue(argv[2:], "--url")
 	if !hasURL {
-		urlVal, hasURL = extractFlagValue(tokens[2:], "--uri")
+		urlVal, hasURL = extractFlagValue(argv[2:], "--uri")
 	}
 	if !hasURL {
-		urlVal, hasURL = extractFlagValue(tokens[2:], "-u")
+		urlVal, hasURL = extractFlagValue(argv[2:], "-u")
 	}
 
 	if hasURL && !isAzureHost(urlVal) {
@@ -160,67 +234,80 @@ func (v *DefaultValidator) validateFlagSecurity(cmdStr string) error {
 			cmdStr)
 	}
 
+	// --resource forces Azure CLI to mint a bearer token for the named audience
+	// independent of --url. If --resource is present, require a recognized
+	// Azure --url so the freshly minted token cannot be redirected to an
+	// unknown destination.
+	if _, hasResource := extractFlagValue(argv[2:], "--resource"); hasResource {
+		if !hasURL {
+			return NewAzCliError(ErrorTypeCommandDenied,
+				"az rest --resource requires an explicit --url/--uri pointing at a known Azure host",
+				cmdStr)
+		}
+		// hasURL && !isAzureHost(urlVal) was already rejected above; reaching
+		// here means hasURL && isAzureHost(urlVal), which is the legitimate path.
+	}
+
 	return nil
 }
 
-func (v *DefaultValidator) checkDenyList(cmdStr string) error {
+// hasArgvPrefix reports whether argv starts with the prefix tokens. Pure
+// structural comparison — quoting in the original cmdStr cannot change the
+// outcome because both sides have already been canonicalized through the
+// shared lexer.
+func hasArgvPrefix(argv, prefix []string) bool {
+	if len(argv) < len(prefix) {
+		return false
+	}
+	for i, p := range prefix {
+		if argv[i] != p {
+			return false
+		}
+	}
+	return true
+}
+
+func (v *DefaultValidator) checkDenyList(cmdStr string, argv []string) error {
 	if v.policy == nil {
 		return nil
 	}
 
-	// Normalize whitespace so entries cannot be evaded with extra spaces
-	// (e.g. "az  rest ..." vs "az rest ..."). Matches the normalization
-	// applied in checkReadOnly's credential denylist.
-	normalizedCmd := strings.Join(strings.Fields(cmdStr), " ")
-	for _, denied := range v.policy.Policy.DenyList {
-		if strings.HasPrefix(normalizedCmd, denied) {
-			return NewAzCliError(ErrorTypeCommandDenied, fmt.Sprintf("command denied by security policy: %s", denied), cmdStr)
+	for i, denied := range v.policyDenyArgv {
+		if hasArgvPrefix(argv, denied) {
+			// Echo the operator-facing form of the deny rule (the original
+			// string from the loaded policy), not the tokenized form.
+			return NewAzCliError(ErrorTypeCommandDenied,
+				fmt.Sprintf("command denied by security policy: %s", v.policy.Policy.DenyList[i]),
+				cmdStr)
 		}
 	}
 	return nil
 }
 
-func (v *DefaultValidator) checkReadOnly(cmdStr string) error {
+func (v *DefaultValidator) checkReadOnly(cmdStr string, argv []string) error {
 	if v.readOnlyPatterns == nil {
 		return NewAzCliError(ErrorTypeCommandDenied, "read-only patterns not loaded", cmdStr)
 	}
 
-	// Hardcoded denylist: credential-bearing commands are never allowed in readonly mode,
-	// regardless of pattern matches. These commands match the broad read-only
-	// regexes (list / show / get-*) but actually return reusable credentials
-	// rather than metadata (keys, secrets, connection strings, kubeconfigs,
-	// access tokens, app settings).
-	credentialDenyPrefixes := []string{
-		"az account get-access-token",
-		"az aks get-credentials",
-		"az fleet get-credentials",
-		"az ad app credential",
-		"az ad sp credential",
-		"az storage account keys list",
-		"az storage account show-connection-string",
-		"az keyvault secret show",
-		"az keyvault secret list",
-		"az keyvault secret download",
-		"az cosmosdb keys list",
-		"az cosmosdb list-connection-strings",
-		"az redis list-keys",
-		"az acr credential show",
-		"az cognitiveservices account keys list",
-		"az servicebus namespace authorization-rule keys list",
-		"az eventhubs namespace authorization-rule keys list",
-		"az webapp config appsettings list",
-		"az functionapp config appsettings list",
-	}
-	normalizedCmd := strings.Join(strings.Fields(cmdStr), " ")
-	for _, prefix := range credentialDenyPrefixes {
-		if strings.HasPrefix(normalizedCmd, prefix) {
+	// Hardcoded denylist: credential-bearing commands are never allowed in
+	// readonly mode, regardless of pattern matches. Matched structurally on
+	// argv so quoting cannot bypass.
+	for _, denied := range v.credentialDenyArgv {
+		if hasArgvPrefix(argv, denied) {
 			return NewAzCliError(ErrorTypeCommandDenied,
 				"command returns credential material and is not allowed in read-only mode", cmdStr)
 		}
 	}
 
+	// Regex allowlist: run patterns against the canonical, quote-stripped form
+	// of the command (argv joined with single spaces). This way
+	//   az vm "list"
+	// matches the same pattern as
+	//   az vm list
+	// and `^az ` anchors behave consistently regardless of input quoting.
+	canonical := strings.Join(argv, " ")
 	for _, pattern := range v.readOnlyPatterns.Patterns {
-		matched, err := regexp.MatchString(pattern, cmdStr)
+		matched, err := regexp.MatchString(pattern, canonical)
 		if err != nil {
 			continue
 		}
