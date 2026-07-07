@@ -9,25 +9,25 @@ import (
 )
 
 type mockValidator struct {
-	validateFunc func(cmdStr string) error
+	validateFunc func(cmdStr string, argv []string) error
 }
 
-func (m *mockValidator) Validate(cmdStr string) error {
+func (m *mockValidator) Validate(cmdStr string, argv []string) error {
 	if m.validateFunc != nil {
-		return m.validateFunc(cmdStr)
+		return m.validateFunc(cmdStr, argv)
 	}
 	return nil
 }
 
 type mockExecutor struct {
-	executeFunc func(ctx context.Context, cmdStr string) (*Result, error)
+	executeFunc func(ctx context.Context, cmdStr string, argv []string) (*Result, error)
 	callCount   int
 }
 
-func (m *mockExecutor) Execute(ctx context.Context, cmdStr string) (*Result, error) {
+func (m *mockExecutor) Execute(ctx context.Context, cmdStr string, argv []string) (*Result, error) {
 	m.callCount++
 	if m.executeFunc != nil {
-		return m.executeFunc(ctx, cmdStr)
+		return m.executeFunc(ctx, cmdStr, argv)
 	}
 	return &Result{
 		Output:   json.RawMessage(`{"status":"ok"}`),
@@ -74,7 +74,7 @@ func TestClient_ExecuteCommand_Success(t *testing.T) {
 func TestClient_ExecuteCommand_ValidationError(t *testing.T) {
 	mockExec := &mockExecutor{}
 	mockVal := &mockValidator{
-		validateFunc: func(cmdStr string) error {
+		validateFunc: func(cmdStr string, argv []string) error {
 			return NewAzCliError(ErrorTypeCommandDenied, "command denied", cmdStr)
 		},
 	}
@@ -98,7 +98,7 @@ func TestClient_ExecuteCommand_ValidationError(t *testing.T) {
 func TestClient_ExecuteCommand_AuthRetry(t *testing.T) {
 	firstCall := true
 	mockExec := &mockExecutor{
-		executeFunc: func(ctx context.Context, cmdStr string) (*Result, error) {
+		executeFunc: func(ctx context.Context, cmdStr string, argv []string) (*Result, error) {
 			if firstCall {
 				firstCall = false
 				return nil, NewAzCliError(ErrorTypeAuth, "authentication expired", cmdStr)
@@ -138,7 +138,7 @@ func TestClient_ExecuteCommand_AuthRetry(t *testing.T) {
 
 func TestClient_ExecuteCommand_AuthRetryFailed(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFunc: func(ctx context.Context, cmdStr string) (*Result, error) {
+		executeFunc: func(ctx context.Context, cmdStr string, argv []string) (*Result, error) {
 			return nil, NewAzCliError(ErrorTypeAuth, "authentication expired", cmdStr)
 		},
 	}
@@ -175,7 +175,7 @@ func TestClient_ExecuteCommand_AuthRetryFailed(t *testing.T) {
 
 func TestClient_ExecuteCommand_NoAuthSetup(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFunc: func(ctx context.Context, cmdStr string) (*Result, error) {
+		executeFunc: func(ctx context.Context, cmdStr string, argv []string) (*Result, error) {
 			return nil, NewAzCliError(ErrorTypeAuth, "authentication expired", cmdStr)
 		},
 	}
@@ -200,7 +200,7 @@ func TestClient_ExecuteCommand_NoAuthSetup(t *testing.T) {
 
 func TestClient_ExecuteCommand_NonAuthError(t *testing.T) {
 	mockExec := &mockExecutor{
-		executeFunc: func(ctx context.Context, cmdStr string) (*Result, error) {
+		executeFunc: func(ctx context.Context, cmdStr string, argv []string) (*Result, error) {
 			return nil, NewAzCliError(ErrorTypeExecution, "resource not found", cmdStr)
 		},
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"os/exec"
 	"strings"
 	"time"
@@ -13,7 +12,7 @@ import (
 )
 
 type Executor interface {
-	Execute(ctx context.Context, cmdStr string) (*Result, error)
+	Execute(ctx context.Context, cmdStr string, argv []string) (*Result, error)
 }
 
 type DefaultExecutor struct {
@@ -32,19 +31,21 @@ func NewDefaultExecutor(config ExecutorConfig) *DefaultExecutor {
 	}
 }
 
-func (e *DefaultExecutor) Execute(ctx context.Context, cmdStr string) (*Result, error) {
+// Execute runs the previously-tokenized argv. The caller (Client) is
+// responsible for producing argv via tokenizeCommand so the validator and
+// executor see byte-identical argv.
+func (e *DefaultExecutor) Execute(ctx context.Context, cmdStr string, argv []string) (*Result, error) {
 	startTime := time.Now()
 
-	args, err := e.parseCommandString(cmdStr)
-	if err != nil {
-		return nil, NewAzCliError(ErrorTypeInvalidCommand, err.Error(), cmdStr)
+	if len(argv) == 0 {
+		return nil, NewAzCliError(ErrorTypeInvalidCommand, "empty argv", cmdStr)
 	}
 
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, e.config.Timeout)
 	defer cancel()
 
 	// #nosec G204 - This is the intended behavior: execute validated Azure CLI commands
-	cmd := exec.CommandContext(ctxWithTimeout, args[0], args[1:]...)
+	cmd := exec.CommandContext(ctxWithTimeout, argv[0], argv[1:]...)
 
 	if e.config.WorkingDir != "" {
 		cmd.Dir = e.config.WorkingDir
@@ -58,7 +59,7 @@ func (e *DefaultExecutor) Execute(ctx context.Context, cmdStr string) (*Result, 
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	err = cmd.Run()
+	err := cmd.Run()
 	duration := time.Since(startTime)
 
 	exitCode := 0
@@ -103,63 +104,6 @@ func (e *DefaultExecutor) Execute(ctx context.Context, cmdStr string) (*Result, 
 	}
 
 	return result, nil
-}
-
-func (e *DefaultExecutor) parseCommandString(cmdStr string) ([]string, error) {
-	cmdStr = strings.TrimSpace(cmdStr)
-	if cmdStr == "" {
-		return nil, fmt.Errorf("empty command string")
-	}
-
-	args := []string{}
-	var current strings.Builder
-	inQuote := false
-	quoteChar := rune(0)
-
-	for i := 0; i < len(cmdStr); i++ {
-		ch := rune(cmdStr[i])
-		switch {
-		case ch == '"' || ch == '\'':
-			if !inQuote {
-				inQuote = true
-				quoteChar = ch
-			} else if ch == quoteChar {
-				inQuote = false
-				quoteChar = 0
-			} else {
-				current.WriteRune(ch)
-			}
-		case ch == ' ' && !inQuote:
-			if current.Len() > 0 {
-				args = append(args, current.String())
-				current.Reset()
-			}
-		case ch == '\\' && i+1 < len(cmdStr):
-			next := rune(cmdStr[i+1])
-			if next == '"' || next == '\'' || next == '\\' {
-				current.WriteRune(next)
-				i++
-			} else {
-				current.WriteRune(ch)
-			}
-		default:
-			current.WriteRune(ch)
-		}
-	}
-
-	if inQuote {
-		return nil, fmt.Errorf("unclosed quote in command string")
-	}
-
-	if current.Len() > 0 {
-		args = append(args, current.String())
-	}
-
-	if len(args) == 0 {
-		return nil, fmt.Errorf("no command found")
-	}
-
-	return args, nil
 }
 
 // isAuthError detects authentication-related errors from Azure CLI stderr output.
