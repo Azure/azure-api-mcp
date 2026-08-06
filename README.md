@@ -7,7 +7,7 @@ A secure MCP (Model Context Protocol) server that provides controlled access to 
 - **Multi-layer Security Validation**: Basic security checks, configurable security policy, and read-only mode
 - **Flexible Authentication**: Support for workload identity, managed identity, service principal, and existing sessions
 - **Embedded Configuration**: Config files embedded in binary, no external dependencies required
-- **Multiple Transport Modes**: stdio, SSE, and streamable-http
+- **Local stdio Transport**: starts as a subprocess of your MCP client
 - **Timeout Control**: Configurable command execution timeouts
 - **Structured Error Handling**: Detailed error information and types
 
@@ -36,8 +36,6 @@ go build -o bin/azure-api-mcp ./cmd/server
 # With security policy
 ./bin/azure-api-mcp --enable-security-policy --security-policy-file configs/security-policy.yaml
 
-# SSE transport mode
-./bin/azure-api-mcp --transport sse --host 0.0.0.0 --port 8000
 ```
 
 ## Authentication
@@ -98,9 +96,7 @@ The primary tool for executing Azure CLI commands.
 
 ```bash
 # Transport mode
---transport string          Transport mode: stdio, sse, streamable-http (default "stdio")
---host string              Host to listen on for non-stdio transport (default "127.0.0.1")
---port int                 Port to listen on for non-stdio transport (default 8000)
+--transport string          Transport mode: stdio only (default "stdio")
 
 # Security configuration
 --readonly                 Enable read-only mode (default false)
