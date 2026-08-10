@@ -5,7 +5,7 @@ A secure MCP (Model Context Protocol) server that provides controlled access to 
 ## Features
 
 - **Multi-layer Security Validation**: Basic security checks, configurable security policy, and read-only mode
-- **Flexible Authentication**: Support for workload identity, managed identity, service principal, and existing sessions
+- **Flexible Authentication**: Support for workload identity, managed identity, service principals, and existing Azure CLI sessions
 - **Embedded Configuration**: Config files embedded in binary, no external dependencies required
 - **Local stdio Transport**: starts as a subprocess of your MCP client
 - **Timeout Control**: Configurable command execution timeouts
@@ -131,19 +131,13 @@ AZURE_SUBSCRIPTION_ID=xxx
 
 This MCP server executes Azure CLI commands provided by LLM. While multiple validation layers are implemented, LLM may generate unexpected commands or discover validation bypasses. We strongly recommend:
 
-1. **Deploy with workload identity** - Use Azure RBAC for access control and pod security policies to limit blast radius in case the mcp server pod is compromised.
+1. **Run locally through stdio** - Configure an MCP client to start this binary as a local subprocess. Do not expose it through a network proxy or gateway.
 2. **Use agent frameworks with intervention handlers** - Require explicit user approval before executing commands.
 3. **Apply principle of least privilege** - Grant minimal permissions and enable security controls.
 
-### Recommended Deployment: Workload Identity on AKS
-
-**For production use, we strongly recommend deploying this MCP server on AKS with workload identity authentication.** This decouples agent permissions from user identity and leverages Azure RBAC for enterprise-grade access control.
-
-For deployment guidance, see this reference guide for deploying MCP servers on AKS with workload identity (the steps are similar for azure-api-mcp): [Deploy MCP Server on AKS with Workload Identity](https://blog.aks.azure.com/2025/10/22/deploy-mcp-server-aks-workload-identity)
-
 ### Foundation: Azure RBAC
 
-The most important security feature is **Azure RBAC integration through workload identity**. When using workload identity or managed identity authentication, all agent operations are subject to the Azure identity's RBAC role assignments. This provides enterprise-grade access control at the Azure platform level, complementing the application-level validation policies below.
+The authoritative authorization boundary is Azure RBAC for the identity used by the local Azure CLI process.
 
 Example: An agent with Azure Reader role can only perform read operations regardless of application configuration, while an agent with Contributor role on a specific resource group can only affect resources within that scope.
 
