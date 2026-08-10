@@ -16,8 +16,6 @@ type Config struct {
 	SecurityPolicyFile   string
 	ReadOnlyPatternsFile string
 	Transport            string
-	Host                 string
-	Port                 int
 	LogLevel             string
 
 	SkipAuthSetup       bool
@@ -37,8 +35,6 @@ func NewConfig() *Config {
 		SecurityPolicyFile:   "",
 		ReadOnlyPatternsFile: "",
 		Transport:            "stdio",
-		Host:                 "127.0.0.1",
-		Port:                 8000,
 		LogLevel:             "info",
 
 		SkipAuthSetup: false,
@@ -52,9 +48,7 @@ func (c *Config) ParseFlags() error {
 	flag.IntVar(&c.Timeout, "timeout", c.Timeout, "Timeout for command execution in seconds")
 	flag.StringVar(&c.SecurityPolicyFile, "security-policy-file", c.SecurityPolicyFile, "Path to security policy YAML file")
 	flag.StringVar(&c.ReadOnlyPatternsFile, "readonly-patterns-file", c.ReadOnlyPatternsFile, "Path to read-only patterns YAML file")
-	flag.StringVar(&c.Transport, "transport", c.Transport, "Transport mechanism (stdio, sse, streamable-http)")
-	flag.StringVar(&c.Host, "host", c.Host, "Host to listen on (for non-stdio transport)")
-	flag.IntVar(&c.Port, "port", c.Port, "Port to listen on (for non-stdio transport)")
+	flag.StringVar(&c.Transport, "transport", c.Transport, "Transport mechanism (stdio only)")
 	flag.StringVar(&c.LogLevel, "log-level", c.LogLevel, "Log level (debug, info, warn, error)")
 	flag.StringVar(&c.AuthMethod, "auth-method", c.AuthMethod, "Authentication method (auto, workload-identity, managed-identity, service-principal)")
 
@@ -122,14 +116,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("timeout must be greater than 0")
 	}
 
-	validTransports := map[string]bool{
-		"stdio":           true,
-		"sse":             true,
-		"streamable-http": true,
-	}
-
-	if !validTransports[c.Transport] {
-		return fmt.Errorf("invalid transport: %s (must be stdio, sse, or streamable-http)", c.Transport)
+	if c.Transport != "stdio" {
+		return fmt.Errorf("unsupported transport %q: only stdio is supported", c.Transport)
 	}
 
 	return nil

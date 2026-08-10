@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"time"
 
@@ -103,74 +102,10 @@ func main() {
 }
 
 func runServer(mcpServer *server.MCPServer, cfg *config.Config) error {
-	switch cfg.Transport {
-	case "stdio":
-		logger.Info("Listening for requests on STDIO...")
-		return server.ServeStdio(mcpServer)
-
-	case "sse":
-		addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-		baseURL := fmt.Sprintf("http://%s", addr)
-
-		mux := http.NewServeMux()
-		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"status":"healthy"}`))
-		})
-
-		customServer := &http.Server{
-			Addr:              addr,
-			Handler:           mux,
-			ReadHeaderTimeout: 10 * time.Second,
-		}
-
-		sseServer := server.NewSSEServer(
-			mcpServer,
-			server.WithBaseURL(baseURL),
-			server.WithHTTPServer(customServer),
-		)
-
-		logger.Infof("SSE server listening on %s", addr)
-		logger.Infof("Base URL: %s", baseURL)
-		logger.Infof("SSE endpoint available at: http://%s/sse", addr)
-		logger.Infof("Message endpoint available at: http://%s/message", addr)
-		logger.Infof("Health check available at: http://%s/health", addr)
-		logger.Info("Connect to /sse for real-time events, send JSON-RPC to /message")
-
-		return sseServer.Start(addr)
-
-	case "streamable-http":
-		addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-
-		mux := http.NewServeMux()
-		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"status":"healthy"}`))
-		})
-
-		customServer := &http.Server{
-			Addr:              addr,
-			Handler:           mux,
-			ReadHeaderTimeout: 10 * time.Second,
-		}
-
-		streamableServer := server.NewStreamableHTTPServer(
-			mcpServer,
-			server.WithStreamableHTTPServer(customServer),
-		)
-
-		mux.Handle("/mcp", streamableServer)
-
-		logger.Infof("Streamable HTTP server listening on %s", addr)
-		logger.Infof("MCP endpoint available at: http://%s/mcp", addr)
-		logger.Infof("Health check available at: http://%s/health", addr)
-		logger.Info("Send POST requests to /mcp to initialize session and obtain Mcp-Session-Id")
-
-		return customServer.ListenAndServe()
-
-	default:
-		return fmt.Errorf("invalid transport type: %s (must be 'stdio', 'sse', or 'streamable-http')", cfg.Transport)
+	if cfg.Transport != "stdio" {
+		return fmt.Errorf("unsupported transport %q: only stdio is supported", cfg.Transport)
 	}
+
+	logger.Info("Listening for requests on STDIO...")
+	return server.ServeStdio(mcpServer)
 }
