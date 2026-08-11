@@ -7,8 +7,6 @@ SHELLFLAGS := -eo pipefail -c
 # Variables
 BINARY_NAME = azure-api-mcp
 MAIN_PATH = ./cmd/server
-DOCKER_IMAGE = azure-api-mcp
-DOCKER_TAG ?= latest
 
 # Version information
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -65,7 +63,6 @@ clean: ## Clean build artifacts
 	rm -rf bin/
 	rm -f coverage.txt
 	go clean -cache
-	docker image rm -f $(DOCKER_IMAGE):$(DOCKER_TAG) 2>/dev/null || true
 
 .PHONY: inspector
 inspector: ## Run MCP inspector for debugging
@@ -133,28 +130,6 @@ staticcheck: ## Run staticcheck
 	fi
 	@$$(go env GOPATH)/bin/staticcheck ./...
 
-##@ Docker
-
-.PHONY: docker-build
-docker-build: ## Build Docker image
-	@echo "==> Building Docker image..."
-	docker build \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
-		--build-arg BUILD_DATE=$(BUILD_DATE) \
-		--build-arg GIT_TREE_STATE=$(GIT_TREE_STATE) \
-		-t $(DOCKER_IMAGE):$(DOCKER_TAG) .
-
-.PHONY: docker-run
-docker-run: docker-build ## Run Docker container
-	@echo "==> Running Docker container..."
-	docker run --rm -p 8000:8000 $(DOCKER_IMAGE):$(DOCKER_TAG)
-
-.PHONY: docker-shell
-docker-shell: docker-build ## Run Docker container with shell access
-	@echo "==> Running Docker container with shell..."
-	docker run --rm -it --entrypoint=/bin/bash $(DOCKER_IMAGE):$(DOCKER_TAG)
-
 ##@ Release
 
 .PHONY: release
@@ -200,7 +175,6 @@ info: ## Show build information
 	@echo "Shell: $(SHELL) $(SHELLFLAGS)"
 	@echo "Binary Name: $(BINARY_NAME)"
 	@echo "Main Path: $(MAIN_PATH)"
-	@echo "Docker Image: $(DOCKER_IMAGE):$(DOCKER_TAG)"
 	@echo "CGO Enabled: $(CGO_ENABLED)"
 	@echo "LDFLAGS: $(LDFLAGS)"
 
