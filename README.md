@@ -7,7 +7,7 @@ A secure MCP (Model Context Protocol) server that provides controlled access to 
 - **Multi-layer Security Validation**: Basic security checks, configurable security policy, and read-only mode
 - **Flexible Authentication**: Support for workload identity, managed identity, service principals, and existing Azure CLI sessions
 - **Embedded Configuration**: Config files embedded in binary, no external dependencies required
-- **Local stdio Transport**: starts as a subprocess of your MCP client
+- **Local stdio transport**: Runs only as a local subprocess of an MCP client
 - **Timeout Control**: Configurable command execution timeouts
 - **Structured Error Handling**: Detailed error information and types
 
