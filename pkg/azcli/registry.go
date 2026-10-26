@@ -32,6 +32,8 @@ func generateToolDescription(readOnlyMode bool, defaultSubscription string) stri
 		baseDesc += "Default Subscription: " + defaultSubscription + "\n\n"
 	}
 
+	baseDesc += "az rest is permanently disabled and cannot be enabled by policy. Use a resource-specific Azure CLI command instead.\n\n"
+
 	baseDesc += "IMPORTANT: Commands must be simple Azure CLI invocations without shell features.\n"
 	baseDesc += "NOT allowed: pipes (|), redirects (>, <), command substitution ($(...) or ``), semicolons (;), && or ||.\n"
 	baseDesc += "If you need values from another command, call this tool multiple times sequentially.\n\n"
