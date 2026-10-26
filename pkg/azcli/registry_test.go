@@ -78,6 +78,9 @@ func TestGenerateToolDescription(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			desc := generateToolDescription(tt.readOnlyMode, tt.defaultSubscription)
+			if !strings.Contains(desc, "az rest is permanently disabled and cannot be enabled by policy") {
+				t.Fatal("tool description must explain the permanent REST restriction")
+			}
 
 			for _, want := range tt.wantContains {
 				if !strings.Contains(desc, want) {

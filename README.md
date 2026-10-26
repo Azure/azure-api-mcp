@@ -145,6 +145,8 @@ Example: An agent with Azure Reader role can only perform read operations regard
 
 1. **Basic Security** (always enforced)
    - Must start with "az "
+   - `az rest` is permanently disabled in all modes, including GET requests to Azure URLs. Security policies and custom read-only patterns cannot enable it. Use resource-specific commands such as `az aks show` or `az resource show` instead.
+   - Global options before the command must use recognized full names (or `-o` / `-s`). Place other options after the command.
    - Blocks shell operators: `|`, `>`, `<`, `&&`, `||`, `;`, `$`, `` ` ``, newlines
    - Prevents path traversal: `../` and `..\`
 
